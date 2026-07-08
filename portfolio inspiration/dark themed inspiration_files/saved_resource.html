@@ -1,0 +1,430 @@
+
+<!-- saved from url=(0029)https://variant.com/community -->
+<html lang="en" vid="0" style="background-color: rgb(46, 46, 46);"><head vid="1"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Butterfly.fi — Kinetic Liquidity</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com/" vid="5">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" vid="6">
+    <link href="./css2(16)" rel="stylesheet" vid="7">
+    <style vid="8">
+        :root {
+            --bg: #030303;
+            --accent: #E4BFFF;
+            --text: #FFFFFF;
+            --muted: rgba(255, 255, 255, 0.4);
+            --border: rgba(255, 255, 255, 0.08);
+            --font-serif: 'Cormorant Garamond', serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font-sans);
+            overflow: hidden;
+            width: 1440px;
+            height: 1024px;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: radial-gradient(circle at 50% 50%, #0a0a0f 0%, #030303 100%);
+        }
+
+        .overlay {
+            position: relative;
+            z-index: 10;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 60px 80px;
+            pointer-events: none;
+        }
+
+        .overlay * {
+            pointer-events: auto;
+        }
+
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 120px;
+        }
+
+        .logo {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: 0.2em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-box {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 40px;
+        }
+
+        .nav-links a {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            text-decoration: none;
+            color: var(--muted);
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        
+        .hero {
+            max-width: 700px;
+        }
+
+        .sys-tag {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--accent);
+            margin-bottom: 24px;
+            display: block;
+            opacity: 0.8;
+        }
+
+        h1 {
+            font-family: var(--font-serif);
+            font-weight: 300;
+            font-size: 88px;
+            line-height: 0.9;
+            margin-bottom: 40px;
+            letter-spacing: -0.02em;
+        }
+
+        h1 em {
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        .terminal-actions {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+            margin-bottom: 100px;
+        }
+
+        .btn-terminal {
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
+            backdrop-filter: blur(10px);
+            color: var(--text);
+            padding: 20px 40px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-terminal:hover {
+            border-color: var(--accent);
+            background: rgba(228, 191, 255, 0.05);
+        }
+
+        .latency-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .latency-stat .val {
+            font-family: var(--font-mono);
+            font-size: 14px;
+            color: var(--accent);
+        }
+
+        .latency-stat .lbl {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+        }
+
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border);
+            margin-top: auto;
+            border: 1px solid var(--border);
+        }
+
+        .feature-card {
+            background: var(--bg);
+            padding: 40px;
+            transition: background 0.3s;
+        }
+
+        .feature-card:hover {
+            background: #080808;
+        }
+
+        .feature-card .num {
+            font-family: var(--font-mono);
+            font-size: 9px;
+            color: var(--muted);
+            margin-bottom: 30px;
+            display: block;
+        }
+
+        .feature-card h3 {
+            font-family: var(--font-serif);
+            font-size: 24px;
+            font-weight: 300;
+            margin-bottom: 16px;
+        }
+
+        .feature-card p {
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.6;
+            max-width: 260px;
+        }
+
+        
+        .floating-stats {
+            position: absolute;
+            right: 80px;
+            bottom: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 60px;
+            text-align: right;
+        }
+
+        .f-stat-item .val {
+            font-family: var(--font-serif);
+            font-size: 42px;
+            font-weight: 300;
+            display: block;
+        }
+
+        .f-stat-item .lbl {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.1) 50%);
+            background-size: 100% 4px;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        .dot-matrix {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 2;
+            pointer-events: none;
+        }
+    </style>
+<link type="text/css" rel="stylesheet" id="dark-mode-custom-link"><link type="text/css" rel="stylesheet" id="dark-mode-general-link"><style lang="en" type="text/css" id="dark-mode-custom-style"></style><style lang="en" type="text/css" id="dark-mode-native-style"></style><style lang="en" type="text/css" id="dark-mode-native-sheet"></style></head>
+<body vid="9">
+    <div class="scanline" vid="10"></div>
+    <div class="dot-matrix" vid="11"></div>
+    <div id="canvas-container" vid="12"><canvas width="1440" height="1024" style="display: block; width: 1440px; height: 1024px;"></canvas></div>
+
+    <div class="overlay" vid="13">
+        <nav vid="14">
+            <div class="logo" vid="15">
+                <div class="logo-box" vid="16"></div>
+                BUTTERFLY.FI / V.0.42
+            </div>
+            <div class="nav-links" vid="17">
+                <a href="https://variant.com/community#" vid="18">Exchange</a>
+                <a href="https://variant.com/community#" vid="19">Vaults</a>
+                <a href="https://variant.com/community#" vid="20">Governance</a>
+                <a href="https://variant.com/community#" vid="21">Documentation</a>
+            </div>
+            <div class="logo" vid="22" style="font-size: 10px; color: var(--muted);">
+                SYS_STATUS: ACTIVE
+            </div>
+        </nav>
+
+        <main class="hero" vid="23">
+            <span class="sys-tag" vid="24">// INITIALIZING NEURAL LIQUIDITY FLOW</span>
+            <h1 vid="25">Transforming <br vid="26">the <em vid="27">architecture</em> of risk.</h1>
+            
+            <div class="terminal-actions" vid="28">
+                <button class="btn-terminal" vid="29">Open Terminal</button>
+                <div class="latency-stat" vid="30">
+                    <span class="val" vid="31">0.0001s</span>
+                    <span class="lbl" vid="32">Execution Latency</span>
+                </div>
+                <div class="latency-stat" vid="33">
+                    <span class="val" vid="34">24/7</span>
+                    <span class="lbl" vid="35">Real-time Settlement</span>
+                </div>
+            </div>
+        </main>
+
+        <div class="floating-stats" vid="36">
+            <div class="f-stat-item" vid="37">
+                <span class="val" vid="38">$412.8M</span>
+                <span class="lbl" vid="39">Total Open Interest</span>
+            </div>
+            <div class="f-stat-item" vid="40">
+                <span class="val" vid="41">12.4k</span>
+                <span class="lbl" vid="42">Active Strategists</span>
+            </div>
+        </div>
+
+        <div class="features-grid" vid="43">
+            <div class="feature-card" vid="44">
+                <span class="num" vid="45">01 // KINETIC</span>
+                <h3 vid="46">Laminar Pricing</h3>
+                <p vid="47">High-fidelity mathematical modeling to provide institutional-grade options trading on-chain.</p>
+            </div>
+            <div class="feature-card" vid="48">
+                <span class="num" vid="49">02 // ADAPTIVE</span>
+                <h3 vid="50">Sovereign Vaults</h3>
+                <p vid="51">Automated liquidity provision with dynamic delta-neutral rebalancing and zero slippage.</p>
+            </div>
+            <div class="feature-card" vid="52">
+                <span class="num" vid="53">03 // PRISMATIC</span>
+                <h3 vid="54">Global Settlement</h3>
+                <p vid="55">Permissionless infrastructure built for the next generation of financial primitives.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="./three.min(1).js.download" vid="56"></script>
+    <script vid="57">;(function(){
+        let scene, camera, renderer, particles;
+        const particleCount = 12000;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, 1440 / 1024, 0.1, 1000);
+            camera.position.z = 5;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(1440, 1024);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount);
+
+            for (let i = 0; i < particleCount; i++) {
+                
+                positions[i * 3] = (Math.random() - 0.5) * 10;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 5;
+                velocities[i] = Math.random();
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const material = new THREE.PointsMaterial({
+                color: 0xE4BFFF,
+                size: 0.015,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            animate();
+        }
+
+        function butterflyShape(t, i) {
+            
+            
+            
+            const scale = 0.8;
+            const factor = Math.exp(Math.cos(t)) - 2 * Math.cos(4 * t) - Math.pow(Math.sin(t / 12), 5);
+            const x = Math.sin(t) * factor * scale;
+            const y = Math.cos(t) * factor * scale;
+            return { x, y };
+        }
+
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            const positions = particles.geometry.attributes.position.array;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                const t = (i / particleCount) * Math.PI * 12 + time * 0.2;
+                
+                const target = butterflyShape(t, i);
+                
+                
+                const flutter = Math.sin(time * 2 + (i * 0.01)) * 0.2;
+                
+                
+                positions[i3] += (target.x - positions[i3]) * 0.02;
+                positions[i3 + 1] += (target.y - positions[i3 + 1]) * 0.02;
+                positions[i3 + 2] += (flutter - positions[i3 + 2]) * 0.01;
+            }
+
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.rotation.y = Math.sin(time * 0.5) * 0.15;
+            particles.rotation.z = Math.cos(time * 0.3) * 0.05;
+
+            
+            camera.position.x = Math.sin(time * 0.2) * 0.5;
+            camera.position.y = Math.cos(time * 0.2) * 0.5;
+            camera.lookAt(0, 0, 0);
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    
+})();</script>
+</body></html>

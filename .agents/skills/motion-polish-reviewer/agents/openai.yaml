@@ -1,0 +1,6 @@
+interface:
+  display_name: "Motion Polish Reviewer"
+  short_description: "Portfolio Codex skill for motion polish reviewer."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true

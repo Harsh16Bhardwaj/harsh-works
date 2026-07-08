@@ -1,0 +1,6 @@
+interface:
+  display_name: "Visual Reference Translator"
+  short_description: "Portfolio Codex skill for visual reference translator."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true

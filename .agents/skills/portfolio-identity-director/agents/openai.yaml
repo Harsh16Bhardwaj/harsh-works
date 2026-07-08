@@ -1,0 +1,6 @@
+interface:
+  display_name: "Portfolio Identity Director"
+  short_description: "Portfolio Codex skill for portfolio identity director."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true

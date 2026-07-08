@@ -1,0 +1,91 @@
+export const experiences = [
+  {
+    id: "cliphawk",
+    period: "Apr 2026 - Jul 2026",
+    role: "Contract Software Engineer",
+    company: "ClipHawk",
+    type: "Product Engineering Contract",
+    icon: "radar",
+    sigil: "/backgrounds/sigil-cliphawk.png",
+    summary:
+      "Built ClipHawk as a contract-ready AI/data automation system designed to orchestrate agents, audit metadata, and scale high-volume entity processing.",
+    bullets: [
+      "Engineered a distributed orchestration server using Node.js and TypeScript to coordinate AI agents across worker nodes.",
+      "Scaled an event-driven data pipeline capable of processing 5,000+ complex entities daily without ingestion bottlenecks.",
+      "Integrated OpenAI and Anthropic APIs into production metadata-auditing layers, reducing manual review time per entity by 73%.",
+      "Implemented robust message queues for concurrent ingestion, reliability, and worker-level fault tolerance.",
+    ],
+    tags: ["Node.js", "TypeScript", "AI Agents", "OpenAI", "Anthropic", "Message Queues"],
+  },
+  {
+    id: "stealth",
+    period: "Jan 2026 - Apr 2026",
+    role: "AI Model Evaluation Contributor",
+    company: "Stealth",
+    type: "AI Evaluation / Data Annotation",
+    icon: "shield",
+    sigil: "/backgrounds/sigil-stealth.png",
+    summary:
+      "Worked on data annotation, model refinement, red-teaming, and guardrail evaluation workflows for state-of-the-art AI systems.",
+    bullets: [
+      "Contributed to annotation and evaluation workflows focused on model reasoning, safety, and instruction-following quality.",
+      "Used Docker-based environments to review, refine, and validate PRs related to model evaluation and red-team workflows.",
+      "Implemented and tested agent guardrails and evaluation flows across model behavior scenarios.",
+      "Maintained a cumulative quality score of 4.8 / 5 across assigned evaluation work.",
+    ],
+    tags: ["AI Evaluation", "Red Teaming", "Data Annotation", "Docker", "Guardrails", "Model Quality"],
+  },
+  {
+    id: "pluginn",
+    period: "Sep 2025 - Jan 2026",
+    role: "Cofounder",
+    company: "PlugInn",
+    type: "Startup / Product Build",
+    icon: "plug",
+    sigil: "/backgrounds/sigil-pluginn.png",
+    summary:
+      "Cofounded PlugInn and worked across product, engineering, schema design, routing, GTM, market research, and founding strategy.",
+    bullets: [
+      "Designed core website flows, product schemas, and early platform architecture while contributing to founding product decisions.",
+      "Implemented location-based routing using Leaflet.js and built OTP token flows to initialize secure user sessions.",
+      "Built area-based caching to reduce repeated load on location-specific flows and improve platform responsiveness.",
+      "Led product research, market analysis, GTM definition, and product positioning through on-ground discovery.",
+    ],
+    tags: ["Startup", "Product Strategy", "Leaflet.js", "OTP Flow", "Caching", "GTM"],
+  },
+  {
+    id: "onestopesg",
+    period: "Jun 2025 - Sep 2025",
+    role: "Software Development Engineer",
+    company: "OneStopESG, Dubai",
+    type: "Product Engineering",
+    icon: "lock",
+    sigil: "/backgrounds/sigil-onestopesg.png",
+    summary:
+      "Worked on production-facing ESG platform features including jobs, authentication, API security, analytics, caching, and admin-side systems.",
+    bullets: [
+      "Built the ESG Jobs page end-to-end, contributing to a production surface that drew up to 80,000 users per month.",
+      "Worked on schema design and admin-side implementation for multiple endpoints alongside authentication flows.",
+      "Secured vulnerable Next.js APIs by implementing frontend token validation and strengthening request flows.",
+      "Implemented rate limiting, premium analytics, Redis caching, and NoSQL indexing for reliability and cost control.",
+    ],
+    tags: ["Next.js", "Authentication", "API Security", "Rate Limiting", "Redis", "Analytics"],
+  },
+  {
+    id: "gdg-mait",
+    period: "Jun 2024 - May 2025",
+    role: "Web Mentor",
+    company: "Google Developer Groups, MAIT",
+    type: "Community / Mentorship",
+    icon: "globe",
+    sigil: "/backgrounds/sigil-gdg.png",
+    summary:
+      "Started the development journey as a web mentor at GDG MAIT, contributing to the official website, mentoring students, and volunteering in Google's Gen AI learning cohort.",
+    bullets: [
+      "Worked on the official GDG MAIT website, contributing to web development and community-facing technical assets.",
+      "Conducted two student workshops focused on web development and practical technical learning.",
+      "Volunteered for the Gen AI Cohort 2025 and achieved Golden League recognition.",
+    ],
+    tags: ["Web Development", "Mentorship", "Workshops", "GDG", "Gen AI Cohort"],
+  },
+];

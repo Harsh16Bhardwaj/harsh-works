@@ -1,0 +1,39 @@
+# Example Codex project-scoped MCP config.
+# Copy this into .codex/config.toml only for trusted portfolio repos.
+# Keep secrets in environment variables, not in this file.
+
+# Free docs MCP useful for current framework/library documentation.
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+
+# Browser interaction and QA.
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
+startup_timeout_sec = 20
+tool_timeout_sec = 120
+
+# Performance/rendering/browser diagnostics.
+# Requires local Chrome/Chromium support in your environment.
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest"]
+startup_timeout_sec = 20
+tool_timeout_sec = 120
+
+# GitHub MCP placeholder.
+# Configure according to your chosen official GitHub MCP setup and token policy.
+# Keep token in env, not directly in TOML.
+# [mcp_servers.github]
+# command = "docker"
+# args = ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"]
+# env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+
+# Figma MCP placeholder.
+# Only enable if you actually have a Figma design/moodboard.
+# [mcp_servers.figma]
+# url = "https://mcp.figma.com/mcp"
+# bearer_token_env_var = "FIGMA_OAUTH_TOKEN"

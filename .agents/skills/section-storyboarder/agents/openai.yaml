@@ -1,0 +1,6 @@
+interface:
+  display_name: "Section Storyboarder"
+  short_description: "Portfolio Codex skill for section storyboarder."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true

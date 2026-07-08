@@ -1,0 +1,6 @@
+interface:
+  display_name: "Github Proof Cartographer"
+  short_description: "Portfolio Codex skill for github proof cartographer."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true

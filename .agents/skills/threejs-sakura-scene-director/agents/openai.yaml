@@ -1,0 +1,6 @@
+interface:
+  display_name: "Threejs Sakura Scene Director"
+  short_description: "Portfolio Codex skill for threejs sakura scene director."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Recruiter Proof Auditor"
+  short_description: "Portfolio Codex skill for recruiter proof auditor."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true

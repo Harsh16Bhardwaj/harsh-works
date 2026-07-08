@@ -1,0 +1,6 @@
+interface:
+  display_name: "Copy Decringifier"
+  short_description: "Portfolio Codex skill for copy decringifier."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true

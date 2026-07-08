@@ -1,0 +1,6 @@
+interface:
+  display_name: "Content Data Architect"
+  short_description: "Portfolio Codex skill for content data architect."
+  brand_color: "#E879A6"
+policy:
+  allow_implicit_invocation: true
