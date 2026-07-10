@@ -126,18 +126,48 @@ export function HeroScene({
     }
 
     let raf = 0;
+    let visible = true;
+    let visibilityObserver;
+
+    const stopRenderLoop = () => {
+      if (!raf) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
+
+    const startRenderLoop = () => {
+      if (raf || reduceMotion) return;
+      raf = requestAnimationFrame(render);
+    };
+
     const render = (time = 0) => {
+      raf = 0;
       const seconds = time * 0.001;
       resizeRendererToDisplaySize();
       updateSpice(seconds);
       renderer.render(scene, camera);
-      if (!reduceMotion) raf = requestAnimationFrame(render);
+      if (!reduceMotion && visible) raf = requestAnimationFrame(render);
     };
 
     render();
 
+    if (!reduceMotion && "IntersectionObserver" in window) {
+      visible = false;
+      stopRenderLoop();
+      visibilityObserver = new IntersectionObserver(
+        ([entry]) => {
+          visible = entry.isIntersecting;
+          if (visible) startRenderLoop();
+          else stopRenderLoop();
+        },
+        { rootMargin: "220px 0px" },
+      );
+      visibilityObserver.observe(canvas);
+    }
+
     return () => {
-      cancelAnimationFrame(raf);
+      visibilityObserver?.disconnect();
+      stopRenderLoop();
       window.removeEventListener("pointermove", onPointerMove);
       scene.remove(spices);
       spiceGeometry.dispose();

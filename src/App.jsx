@@ -1,15 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { animate, createScope, stagger } from "animejs";
+import Lenis from "lenis";
 import { ArrowDown, ArrowUpRight, BriefcaseBusiness, Database, FileText, GitCommitHorizontal, GitFork, Heart, Mail, MapPin, Network, Radio, Rss, Star } from "lucide-react";
 import { useBlogs } from "./BlogStore.jsx";
-import { HeroScene } from "./HeroScene.jsx";
 import { formatBlogDate, getBlogImage } from "./data/blogs.js";
 import { experiences } from "./data/experiences.js";
 import { githubArchive } from "./data/githubMap.js";
 import { links } from "./data/identity.js";
 import { workLanes } from "./data/workLanes.js";
+
+const HeroScene = lazy(() => import("./HeroScene.jsx").then((module) => ({ default: module.HeroScene })));
+
+function DeferredHeroScene(props) {
+  return (
+    <Suspense fallback={null}>
+      <HeroScene {...props} />
+    </Suspense>
+  );
+}
 
 function ExternalLink({ href, children, className = "", icon: Icon = ArrowUpRight }) {
   return (
@@ -47,10 +57,10 @@ function weightedHeatLevel(date, today) {
     today.getDate();
   const r = seededDayRandom(seed);
 
-  if (r < 0.38) return 3;
-  if (r < 0.65) return 2;
-  if (r < 0.83) return 1;
-  if (r < 0.95) return 4;
+  if (r < 0.34) return 2;
+  if (r < 0.64) return 1;
+  if (r < 0.86) return 3;
+  if (r < 0.96) return 4;
   return 5;
 }
 
@@ -177,7 +187,7 @@ function ArrakisIntro() {
 function HeroSection() {
   return (
     <section className="hero-section" id="top" data-motion-section>
-      <HeroScene density={1.45} />
+      <DeferredHeroScene density={1.45} />
       <div className="hero-atmosphere" aria-hidden="true" />
 
       <div className="hero-content">
@@ -205,7 +215,7 @@ function AboutSection() {
         <span />
         <span />
       </div>
-      <HeroScene className="about-scene" />
+      <DeferredHeroScene className="about-scene" density={0.55} speedScale={0.68} materialOpacity={0.26} />
       <div className="section-inner about-story">
         <div className="about-intro motion-item mt-5">
           <p className="section-kicker">10 / About Me</p>
@@ -346,15 +356,28 @@ function WorklogTimelineSection() {
   return (
     <section className="section-band worklog-section" id="worklog" ref={sectionRef} data-motion-section>
       <div className="worklog-sticky">
+        <div
+          className="worklog-field-map-bg"
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+            background:
+              'linear-gradient(90deg, rgba(5, 4, 6, 0.76) 0%, rgba(8, 6, 7, 0.46) 42%, rgba(5, 4, 6, 0.66) 100%), linear-gradient(180deg, rgba(8, 5, 6, 0.38), rgba(12, 7, 6, 0.2) 42%, rgba(3, 3, 5, 0.66)), url("/backgrounds/worklog-field-map.png") center center / cover no-repeat',
+            filter: "brightness(0.92) contrast(1.08) saturate(0.95)",
+            pointerEvents: "none",
+          }}
+        />
         <div className="worklog-curtain" ref={curtainRef} aria-hidden="true" />
-        <HeroScene
+        <DeferredHeroScene
           className="worklog-scene"
-          density={1.35}
+          density={0.82}
           direction={-1}
-          speedScale={1.35}
-          particleScale={0.74}
-          color={0xb8894a}
-          materialOpacity={0.34}
+          speedScale={1.08}
+          particleScale={0.62}
+          color={0xff6b1a}
+          materialOpacity={0.52}
         />
         <div className="worklog-header">
           <p className="section-kicker">03 / Worklog</p>
@@ -986,8 +1009,10 @@ const hitlistProjects = [
 
 function HitlistSection() {
   const sectionRef = useRef(null);
+  const fieldRef = useRef(null);
   const [activeId, setActiveId] = useState(null);
   const [activeOrigin, setActiveOrigin] = useState({ x: "50%", y: "50%" });
+  const [revealKey, setRevealKey] = useState(0);
   const activeProject = hitlistProjects.find((project) => project.id === activeId);
 
   const sectionStyle = activeProject
@@ -1008,21 +1033,28 @@ function HitlistSection() {
       const y = ((targetRect.top + targetRect.height / 2 - sectionRect.top) / sectionRect.height) * 100;
       setActiveOrigin({ x: `${Math.min(92, Math.max(8, x))}%`, y: `${Math.min(92, Math.max(8, y))}%` });
     }
+    if (activeId !== project.id) setRevealKey((key) => key + 1);
     setActiveId(project.id);
   };
 
-  const hideProject = (projectId) => {
-    setActiveId((current) => (current === projectId ? null : current));
+  const clearProject = () => {
+    setActiveId(null);
+  };
+
+  const clearProjectOnFieldBlur = (event) => {
+    const nextTarget = event.relatedTarget;
+    if (!fieldRef.current || !(nextTarget instanceof Node) || !fieldRef.current.contains(nextTarget)) {
+      clearProject();
+    }
   };
 
   return (
     <section
       ref={sectionRef}
-      className={`section-band hitlist-section ${activeProject ? "has-active-hit" : ""}`}
+      className={`section-band hitlist-section ${activeProject ? `has-active-hit hitlist-reveal-${revealKey % 2}` : ""}`}
       id="hitlist"
       data-motion-section
       style={sectionStyle}
-      onMouseLeave={() => setActiveId(null)}
     >
       <div className="hitlist-world" aria-hidden="true" />
       <div className="hitlist-stage motion-item">
@@ -1038,7 +1070,7 @@ function HitlistSection() {
           </div>
         </header>
 
-        <div className="hitlist-field" aria-label="Project hitlist">
+        <div className="hitlist-field" aria-label="Project hitlist" ref={fieldRef} onMouseLeave={clearProject}>
           {hitlistProjects.map((project) => (
             <button
               className={`hitlist-node hitlist-node--${project.size} ${activeId && activeId !== project.id ? "is-muted" : ""} ${activeId === project.id ? "is-active" : ""}`}
@@ -1048,14 +1080,11 @@ function HitlistSection() {
               onPointerEnter={(event) => {
                 if (event.pointerType !== "touch") showProject(project, event.currentTarget);
               }}
-              onPointerLeave={(event) => {
-                if (event.pointerType !== "touch") hideProject(project.id);
-              }}
               onFocus={(event) => showProject(project, event.currentTarget)}
-              onBlur={() => hideProject(project.id)}
+              onBlur={clearProjectOnFieldBlur}
               onPointerUp={(event) => {
                 if (event.pointerType === "touch") {
-                  activeId === project.id ? hideProject(project.id) : showProject(project, event.currentTarget);
+                  activeId === project.id ? clearProject() : showProject(project, event.currentTarget);
                 }
               }}
               aria-expanded={activeId === project.id}
@@ -1071,7 +1100,7 @@ function HitlistSection() {
           ))}
         </div>
 
-        <article className="hitlist-info" data-side={activeProject?.side ?? "right"} aria-live="polite">
+        <article className="hitlist-info" data-side={activeProject?.side ?? "right"} key={activeProject?.id ?? "idle"} aria-live="polite">
           {activeProject ? (
             <>
               <p className="hitlist-info-index">Priority {activeProject.priority} / {activeProject.status}</p>
@@ -1107,37 +1136,8 @@ function HitlistSection() {
   );
 }
 
-function TinyBuildsSection() {
-  const tinyBuilds = githubArchive.repos.filter((repo) => repo.category === "tiny-builds").slice(0, 6);
-
-  return (
-    <section className="section-band tiny-builds-section" id="tiny-builds" data-motion-section>
-      <div className="section-inner">
-        <SectionHeading
-          kicker="09 / Tiny Builds"
-          title="Small artifacts, kept small on purpose."
-          copy="Utilities, weekend experiments, and compact product fragments. They stay visible, but they do not pretend to be flagship systems."
-          align="split"
-        />
-
-        <div className="tiny-builds-grid motion-item">
-          {tinyBuilds.map((repo) => (
-            <a className="tiny-build-card" href={repo.url} key={repo.id} target="_blank" rel="noreferrer">
-              <span>{repo.icon}</span>
-              <div>
-                <h3>{repo.name}</h3>
-                <p>{repo.oneLine}</p>
-              </div>
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function ContactSection() {
+  const sectionRef = useRef(null);
   const workMail = links.email || "bhardwajharshmait23@gmail.com";
   const contactLinks = [
     { label: "LinkedIn", value: "Connect", href: links.linkedin, icon: BriefcaseBusiness },
@@ -1147,8 +1147,47 @@ function ContactSection() {
     { label: "Dev.to", value: "Field notes", href: "https://dev.to/harsh_bhardwaj_809a89d3a7", icon: Rss },
   ];
 
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return undefined;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return undefined;
+
+    let frame = 0;
+
+    const updateParallax = () => {
+      frame = 0;
+      const rect = section.getBoundingClientRect();
+      const travel = window.innerHeight + rect.height;
+      const progress = travel > 0 ? (window.innerHeight - rect.top) / travel - 0.5 : 0;
+      const clamped = Math.max(-1, Math.min(1, progress * 2));
+      section.style.setProperty("--contact-parallax", clamped.toFixed(3));
+      section.style.setProperty("--contact-orb-y", `${(clamped * -22).toFixed(2)}px`);
+      section.style.setProperty("--contact-orb-rotate", `${(clamped * 12).toFixed(2)}deg`);
+      section.style.setProperty("--contact-halo-y", `${(clamped * 32).toFixed(2)}px`);
+      section.style.setProperty("--contact-halo-scale", (1 + Math.abs(clamped) * 0.035).toFixed(3));
+      section.style.setProperty("--contact-worm-y", `${(clamped * -10).toFixed(2)}px`);
+      section.style.setProperty("--contact-panel-y", `${(clamped * 8).toFixed(2)}px`);
+    };
+
+    const scheduleParallax = () => {
+      if (!frame) frame = window.requestAnimationFrame(updateParallax);
+    };
+
+    updateParallax();
+    window.addEventListener("scroll", scheduleParallax, { passive: true });
+    window.addEventListener("resize", scheduleParallax);
+
+    return () => {
+      window.removeEventListener("scroll", scheduleParallax);
+      window.removeEventListener("resize", scheduleParallax);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
   return (
-    <section className="contact-section" id="contact" data-motion-section>
+    <section className="contact-section" id="contact" data-motion-section ref={sectionRef}>
       <div className="contact-shell motion-item">
         <figure className="contact-worm" aria-label="Monumental desert signal artwork">
           <img className="contact-worm-art" src="/backgrounds/contact-worm.webp" alt="" />
@@ -1234,6 +1273,35 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return undefined;
+
+    const lenis = new Lenis({
+      anchors: {
+        offset: -105,
+        duration: 1.05,
+      },
+      autoRaf: true,
+      duration: 1.32,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      syncTouch: false,
+      touchMultiplier: 1,
+      wheelMultiplier: 0.68,
+      prevent: (node) =>
+        node instanceof Element &&
+        Boolean(node.closest("[data-lenis-prevent], [role='dialog'], dialog, textarea, select")),
+    });
+
+    window.lenis = lenis;
+
+    return () => {
+      lenis.destroy();
+      if (window.lenis === lenis) delete window.lenis;
+    };
+  }, []);
+
   return (
     <div className="site-shell" ref={rootRef}>
       <ArrakisIntro />
@@ -1242,7 +1310,6 @@ function App() {
           <a href="#worklog">Experience</a>
           <a href="#worklog">Worklog</a>
           <a href="#hitlist">Hitlist</a>
-          <a href="#tiny-builds">Tiny Builds</a>
           <a href="#field-notes">Writing</a>
           <a href="#contact">Contact</a>
         </nav>
@@ -1257,7 +1324,6 @@ function App() {
         <GitHubMapSection />
         <FieldNotesSection />
         <HitlistSection />
-        <TinyBuildsSection />
         <AboutSection />
         <ContactSection />
       </main>
