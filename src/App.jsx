@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { animate, createScope, stagger } from "animejs";
-import { ArrowUpRight, Database, GitCommitHorizontal, GitFork, Radio, Star } from "lucide-react";
+import { ArrowDown, ArrowUpRight, BriefcaseBusiness, Database, FileText, GitCommitHorizontal, GitFork, Heart, Mail, MapPin, Network, Radio, Rss, Star } from "lucide-react";
+import { useBlogs } from "./BlogStore.jsx";
 import { HeroScene } from "./HeroScene.jsx";
+import { formatBlogDate, getBlogImage } from "./data/blogs.js";
 import { experiences } from "./data/experiences.js";
-import { githubArchive, heatmapWeeks } from "./data/githubMap.js";
+import { githubArchive } from "./data/githubMap.js";
 import { links } from "./data/identity.js";
-import { projects } from "./data/projects.js";
 import { workLanes } from "./data/workLanes.js";
 
 function ExternalLink({ href, children, className = "", icon: Icon = ArrowUpRight }) {
@@ -27,6 +28,148 @@ function SectionHeading({ kicker, title, copy, align = "left" }) {
         <h2>{title}</h2>
       </div>
       {copy ? <p>{copy}</p> : null}
+    </div>
+  );
+}
+
+function seededDayRandom(seed) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function weightedHeatLevel(date, today) {
+  const seed =
+    date.getFullYear() * 10000 +
+    (date.getMonth() + 1) * 271 +
+    date.getDate() * 37 +
+    today.getFullYear() * 13 +
+    (today.getMonth() + 1) * 19 +
+    today.getDate();
+  const r = seededDayRandom(seed);
+
+  if (r < 0.38) return 3;
+  if (r < 0.65) return 2;
+  if (r < 0.83) return 1;
+  if (r < 0.95) return 4;
+  return 5;
+}
+
+function buildHeatmapMonths(currentDate = new Date()) {
+  const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+
+  return Array.from({ length: 9 }, (_, index) => {
+    const monthDate = new Date(today.getFullYear(), today.getMonth() - index, 1);
+    const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+    const isCurrentMonth =
+      monthDate.getFullYear() === today.getFullYear() && monthDate.getMonth() === today.getMonth();
+
+    return {
+      key: `${monthDate.getFullYear()}-${monthDate.getMonth() + 1}`,
+      label: monthDate.toLocaleString("en-US", { month: "short" }),
+      year: monthDate.getFullYear(),
+      days: Array.from({ length: daysInMonth }, (_, dayIndex) => {
+        const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), dayIndex + 1);
+        const future = isCurrentMonth && date.getDate() > today.getDate();
+        return {
+          key: `${monthDate.getFullYear()}-${monthDate.getMonth() + 1}-${dayIndex + 1}`,
+          day: dayIndex + 1,
+          future,
+          level: future ? 1 : weightedHeatLevel(date, today),
+        };
+      }),
+    };
+  });
+}
+
+function ArrakisIntro() {
+  const targetTitle = "ARRAKIS / PORTFOLIO";
+  const [visible, setVisible] = useState(true);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    const introMode = new URLSearchParams(window.location.search).get("intro");
+    if (introMode === "skip") return undefined;
+
+    const hasSeenIntro = (() => {
+      try {
+        return window.sessionStorage.getItem("arrakisLoaderSeen") === "true";
+      } catch {
+        return false;
+      }
+    })();
+
+    if (introMode === "replay" || !hasSeenIntro) setVisible(true);
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timers = [];
+
+    document.documentElement.classList.add("arrakis-intro-active");
+
+    const markSeenAndLeave = () => {
+      try {
+        window.sessionStorage.setItem("arrakisLoaderSeen", "true");
+      } catch {
+        // If storage is unavailable, still let the cinematic intro finish cleanly.
+      }
+      setLeaving(true);
+    };
+
+    const finish = () => {
+      setVisible(false);
+      document.documentElement.classList.remove("arrakis-intro-active");
+    };
+
+    if (reduceMotion) {
+      timers.push(window.setTimeout(markSeenAndLeave, 520));
+      timers.push(window.setTimeout(finish, 880));
+    } else {
+      timers.push(window.setTimeout(markSeenAndLeave, 4560));
+      timers.push(window.setTimeout(finish, 4900));
+    }
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      document.documentElement.classList.remove("arrakis-intro-active");
+    };
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <div className={`arrakis-intro ${leaving ? "is-leaving" : ""}`} role="status" aria-live="polite" aria-label="Loading portfolio">
+      <div className="arrakis-intro-blackout" aria-hidden="true" />
+      <div className="arrakis-intro-bg" aria-hidden="true" />
+      <div className="arrakis-intro-haze" aria-hidden="true" />
+      <div className="arrakis-intro-grain" aria-hidden="true" />
+
+      <div className="arrakis-intro-title">
+        <p>PERSONAL ARCHIVE ONLINE</p>
+        <h1 aria-label={targetTitle}>
+          <span className="arrakis-title-final" aria-hidden="true">
+            {targetTitle.split("").map((letter, index) => (
+              <span className="arrakis-title-letter" key={`${letter}-${index}`} style={{ "--letter-index": index, opacity: 0 }}>
+                {letter === " " ? "\u00A0" : letter}
+              </span>
+            ))}
+          </span>
+        </h1>
+        <span>INITIALIZING SIGNAL</span>
+      </div>
+
+      <div className="arrakis-progress" aria-hidden="true">
+        <span>LOADING ARCHIVE</span>
+        <div className="arrakis-progress-cells">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <i key={index} style={{ "--cell-index": index }} />
+          ))}
+        </div>
+        <small>SIGNAL ACQUIRED</small>
+      </div>
     </div>
   );
 }
@@ -57,68 +200,53 @@ function AboutSection() {
     <section className="section-band about-section" id="about" data-motion-section>
       <div className="about-transition" aria-hidden="true" />
       <div className="about-moon" aria-hidden="true" />
+      <div className="about-theme-marks" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
       <HeroScene className="about-scene" />
       <div className="section-inner about-story">
         <div className="about-intro motion-item mt-5">
-          <p className="section-kicker">02 / About Me</p>
+          <p className="section-kicker">10 / About Me</p>
           <h2>Who am I ?</h2>
           <div className="about-copy">
             <p>
-              Hello, I&apos;m Harsh Bhardwaj, an engineer from Delhi with a strong interest in
-              building things that are both useful and well-crafted. I specialize in full-stack
-              development and, over the last six months, I&apos;ve been actively exploring machine
-              learning to expand the way I think about technology and problem-solving.
-            </p>
-            <p>
-              Outside of tech, I love sports, stories, films, and consuming all kinds of content
-              that keeps my perspective fresh. Long term, I hope to build something of my own and
-              grow it into a meaningful business by the time I&apos;m 40.
+              I&apos;m Harsh Bhardwaj, an engineer from Delhi building full-stack systems, ML
+              experiments, automation workflows, and public proof trails. I learn by turning ideas
+              into visible artifacts: repos, notes, dashboards, notebooks, field records, and
+              working tools that can be inspected.
             </p>
           </div>
         </div>
 
-        <div className="about-panels motion-item">
-          <article className="about-panel about-panel--study">
-            <span>EDUCATION</span>
-            <div className="education-list">
-              <article>
-                <h3 className="education-title">
-                  <span className="education-icon education-icon--college" aria-hidden="true" />
-                  Maharaja Agrasen Institute of Technology 
-                </h3>
-                <p>Bachelor of Technology in Computer Science (2023 - 2027)</p>
-                <p>CGPA: 8.95</p>
-                <p>Specialisation: Machine Learning &amp; Data Analytics</p>
-              </article>
-              <article>
-                <h3 className="education-title">
-                  <span className="education-icon education-icon--course" aria-hidden="true" />
-                  SIC Course in Data Analysis
-                </h3>
-                <p>Dec 2025 - Mar 2026, Conducted by samsung</p>
-                <p>Completed coursework focused on data analysis concepts.</p>
-              </article>
-              
-            </div>
-          </article>
+        <div className="about-constellation motion-item">
+          <div className="about-proofline" aria-label="Builder operating loop">
+            {["Observe", "Build", "Measure", "Archive"].map((step, index) => (
+              <span key={step} style={{ "--about-step": index }}>
+                <i>{String(index + 1).padStart(2, "0")}</i>
+                {step}
+              </span>
+            ))}
+          </div>
 
-          <article className="about-panel about-panel--philosophy">
-            <span>MY PHILOSOPHY OF ENGINEERING</span>
-            <p>
-              I believe engineering is at its best when it solves a real problem, even if that
-              problem belongs to just one person.
-            </p>
-            <p>
-              For me, building is not only about writing code or shipping features. It is about
-              creating tools, systems, websites, automations, and experiences that make something
-              easier, faster, clearer, or more useful than it was before.
-            </p>
-            <p>
-              I also believe imagination is one of the most underrated skills an engineer can have.
-              Good engineering starts with understanding constraints, but great engineering begins
-              with being able to imagine a better way through them.
-            </p>
-          </article>
+          <div className="about-ledger">
+            <article>
+              <span>Education</span>
+              <h3>Maharaja Agrasen Institute of Technology</h3>
+              <p>B.Tech CSE, 2023 - 2027 / CGPA 8.95 / ML &amp; Data Analytics.</p>
+            </article>
+            <article>
+              <span>Study track</span>
+              <h3>SIC Course in Data Analysis</h3>
+              <p>Coursework focused on analysis concepts, structured data thinking, and practical interpretation.</p>
+            </article>
+            <article>
+              <span>Operating style</span>
+              <h3>Useful systems over decorative builds</h3>
+              <p>I prefer projects that leave proof behind: code, notes, metrics, automations, and decisions someone can inspect.</p>
+            </article>
+          </div>
         </div>
       </div>
     </section>
@@ -127,16 +255,13 @@ function AboutSection() {
 
 function WorklogTimelineSection() {
   const sectionRef = useRef(null);
-  const anchorRef = useRef(null);
   const trackRef = useRef(null);
   const lineRef = useRef(null);
   const curtainRef = useRef(null);
   const activeIndexRef = useRef(0);
   const [scrollActiveIndex, setScrollActiveIndex] = useState(0);
   const [previewIndex, setPreviewIndex] = useState(null);
-  const [viewportWidth, setViewportWidth] = useState(1200);
   const activeIndex = previewIndex ?? scrollActiveIndex;
-  const trackStep = viewportWidth < 900 ? 0 : 768;
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -152,8 +277,8 @@ function WorklogTimelineSection() {
     let animationFrame = 0;
 
     const animateTrack = () => {
-      currentX += (targetX - currentX) * 0.11;
-      currentProgress += (targetProgress - currentProgress) * 0.1;
+      currentX += (targetX - currentX) * 0.16;
+      currentProgress += (targetProgress - currentProgress) * 0.15;
       const nextSmoothedIndex = Math.min(
         experiences.length - 1,
         Math.max(0, Math.round(currentProgress * (experiences.length - 1))),
@@ -170,12 +295,12 @@ function WorklogTimelineSection() {
       }
       if (Math.abs(targetX - currentX) > 0.5 || Math.abs(targetProgress - currentProgress) > 0.002) {
         animationFrame = requestAnimationFrame(animateTrack);
+      } else {
+        animationFrame = 0;
       }
     };
 
     const update = () => {
-      const anchor = anchorRef.current;
-      setViewportWidth(window.innerWidth);
       if (reduceMotion || mobile) {
         if (lineRef.current) lineRef.current.style.width = "8%";
         if (trackRef.current) trackRef.current.style.transform = "translate3d(0, 0, 0)";
@@ -185,11 +310,11 @@ function WorklogTimelineSection() {
         return;
       }
 
-      const anchorTop = anchor?.getBoundingClientRect().top ?? section.getBoundingClientRect().top;
-      const anchorOffset = anchor?.offsetTop ?? 0;
-      const scrollable = Math.max(1, section.offsetHeight - anchorOffset - window.innerHeight);
-      const rawProgress = Math.min(1, Math.max(0, -anchorTop / scrollable));
+      const sectionTop = section.getBoundingClientRect().top;
+      const scrollable = Math.max(1, section.offsetHeight - window.innerHeight);
+      const rawProgress = Math.min(1, Math.max(0, -sectionTop / scrollable));
       const nextProgress = Math.min(1, Math.max(0, rawProgress / 0.985));
+      const trackStep = 768;
       const curtainProgress = Math.min(1, Math.max(0, rawProgress / 0.04));
       if (curtainRef.current) {
         curtainRef.current.style.transform = `translate3d(0, ${(1 - curtainProgress) * 100}%, 0)`;
@@ -197,8 +322,7 @@ function WorklogTimelineSection() {
 
       targetProgress = nextProgress;
       targetX = window.innerWidth * 0.5 - 33 - nextProgress * trackStep * (experiences.length - 1);
-      cancelAnimationFrame(animationFrame);
-      animationFrame = requestAnimationFrame(animateTrack);
+      if (!animationFrame) animationFrame = requestAnimationFrame(animateTrack);
     };
 
     let raf = 0;
@@ -221,17 +345,6 @@ function WorklogTimelineSection() {
 
   return (
     <section className="section-band worklog-section" id="worklog" ref={sectionRef} data-motion-section>
-      <div className="worklog-header">
-        <p className="section-kicker">03 / Worklog</p>
-        <h2>Mission log, latest first.</h2>
-        <p>
-          A horizontal work trail across contracts, AI evaluation, startup building, product
-          engineering, and mentorship.
-        </p>
-      </div>
-
-      <div className="worklog-scroll-anchor" ref={anchorRef} aria-hidden="true" />
-
       <div className="worklog-sticky">
         <div className="worklog-curtain" ref={curtainRef} aria-hidden="true" />
         <HeroScene
@@ -243,6 +356,10 @@ function WorklogTimelineSection() {
           color={0xb8894a}
           materialOpacity={0.34}
         />
+        <div className="worklog-header">
+          <p className="section-kicker">03 / Worklog</p>
+          <h2>Mission log, latest first.</h2>
+        </div>
         <div className="worklog-track-wrap">
           <div className="worklog-line" aria-hidden="true" />
           <div className="worklog-line worklog-line--active" ref={lineRef} aria-hidden="true" />
@@ -299,6 +416,7 @@ function GitHubMapSection() {
   const [activeClusterId, setActiveClusterId] = useState("projects");
   const [hoveredRepoId, setHoveredRepoId] = useState(null);
   const [selectedPinnedRepo, setSelectedPinnedRepo] = useState(null);
+  const [heatmapMonths, setHeatmapMonths] = useState([]);
   const activeCluster = useMemo(
     () => githubArchive.categories.find((cluster) => cluster.id === activeClusterId) ?? githubArchive.categories[0],
     [activeClusterId],
@@ -310,6 +428,10 @@ function GitHubMapSection() {
   const hoveredRepo = githubArchive.repos.find((repo) => repo.id === hoveredRepoId) ?? visibleRepos[0];
   const pinnedRepos = githubArchive.repos.filter((repo) => repo.pinned);
   const metricIcons = { star: Star, fork: GitFork, commit: GitCommitHorizontal, storage: Database };
+
+  useEffect(() => {
+    setHeatmapMonths(buildHeatmapMonths(new Date()));
+  }, []);
 
   return (
     <section className="section-band github-section" id="github-map" data-motion-section>
@@ -385,15 +507,23 @@ function GitHubMapSection() {
             <div className="repo-heatmap">
               <div className="repo-heatmap-head">
                 <span>Contribution Frequency</span>
-                <small>under work / 2026</small>
+                <small>{heatmapMonths.length ? "last 9 months / live date map" : "mapping activity"}</small>
               </div>
-              <div className="heatmap-months" aria-hidden="true">
-                <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span>
-              </div>
-              <div className="heatmap-grid" aria-hidden="true">
-                {heatmapWeeks.flatMap((week, weekIndex) =>
-                  week.map((value, dayIndex) => <i className={`heat-${value}`} key={`${weekIndex}-${dayIndex}`} />),
-                )}
+              <div className="heatmap-months heatmap-months--generated" aria-label="Generated contribution heatmap for the last nine months">
+                {heatmapMonths.map((month) => (
+                  <section className="heatmap-month" key={month.key} aria-label={`${month.label} ${month.year}`}>
+                    <span>{month.label}</span>
+                    <div className="heatmap-month-grid">
+                      {month.days.map((day) => (
+                        <i
+                          className={`heat-${day.level} ${day.future ? "is-future" : ""}`}
+                          key={day.key}
+                          title={`${month.label} ${day.day}, ${month.year}${day.future ? " / future" : ` / level ${day.level}`}`}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
               <div className="heatmap-legend">
                 <span>Less</span>
@@ -401,6 +531,7 @@ function GitHubMapSection() {
                 <i className="heat-2" />
                 <i className="heat-3" />
                 <i className="heat-4" />
+                <i className="heat-5" />
                 <span>More</span>
               </div>
             </div>
@@ -572,7 +703,7 @@ function WorkConsoleSection({ activeLaneId, onLaneChange }) {
                 ))}
               </div>
               <button className="lane-filter" type="button" onClick={() => onLaneChange(lane.id)}>
-                Filter case files
+                Focus this lane
               </button>
             </article>
           ))}
@@ -582,82 +713,424 @@ function WorkConsoleSection({ activeLaneId, onLaneChange }) {
   );
 }
 
-function ProjectGallerySection({ activeLaneId, onLaneChange }) {
-  const [expandedId, setExpandedId] = useState(projects[0].id);
-  const filteredProjects = activeLaneId === "all" ? projects : projects.filter((project) => project.lane === activeLaneId);
+function FieldNotesSection() {
+  const { blogs } = useBlogs();
+  const pinned = blogs.filter((blog) => blog.pinned);
+  const featured = [...pinned, ...blogs.filter((blog) => !blog.pinned)].slice(0, 3);
+  const featureRefs = useRef([]);
+  const [focusedFeatureIndex, setFocusedFeatureIndex] = useState(0);
+
+  useEffect(() => {
+    let raf = 0;
+
+    const updateFocus = () => {
+      raf = 0;
+      const viewportCenter = window.innerHeight / 2;
+      let nextIndex = 0;
+      let bestDistance = Number.POSITIVE_INFINITY;
+
+      featureRefs.current.forEach((node, index) => {
+        if (!node) return;
+        const rect = node.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+        const distance = Math.abs(rect.top + rect.height / 2 - viewportCenter);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          nextIndex = index;
+        }
+      });
+
+      setFocusedFeatureIndex(nextIndex);
+    };
+
+    const scheduleUpdate = () => {
+      if (!raf) raf = window.requestAnimationFrame(updateFocus);
+    };
+
+    const observer = new IntersectionObserver(scheduleUpdate, {
+      rootMargin: "-12% 0px -12% 0px",
+      threshold: [0, 0.2, 0.45, 0.7],
+    });
+
+    featureRefs.current.forEach((node) => {
+      if (node) observer.observe(node);
+    });
+
+    updateFocus();
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      observer.disconnect();
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [featured.length]);
 
   return (
-    <section className="section-band gallery-section" id="project-gallery" data-motion-section>
-      <div className="section-inner">
-        <SectionHeading
-          kicker="05 / Project Gallery"
-          title="Case files from my build desk."
-          copy="These are the projects I want opened first. They are not the whole platform; they are the strongest windows into how I think and build."
-          align="split"
-        />
+    <section className="field-notes-section" id="field-notes" data-motion-section>
+      <div className="field-notes-background-marks" aria-hidden="true">
+        <span className="field-notes-orbit-mark" />
+        <span className="field-notes-compass-mark" />
+        <span className="field-notes-scanline-mark" />
+        <span className="field-notes-coordinate">28.6139 N / 77.2090 E</span>
+        <span className="field-notes-record-code">FIELD RECORDS / HB-07</span>
+        <span className="field-notes-margin-note">RESEARCH LOGS / PUBLIC NOTES / BUILD AFTERMATH</span>
+      </div>
+      <div className="field-notes-shell">
+        <header className="field-notes-heading motion-item">
+          <div className="field-notes-heading-meta">
+            <span>07</span>
+            <p>Written Records</p>
+          </div>
+          <div className="field-notes-heading-copy">
+            <h2>Field Notes</h2>
+            <p>Systems, experiments, and the lessons left behind after the build.</p>
+          </div>
+        </header>
 
-        <div className="gallery-toolbar motion-item">
-          <button className={activeLaneId === "all" ? "is-active" : ""} type="button" onClick={() => onLaneChange("all")}>
-            All case files
-          </button>
-          {workLanes.map((lane) => (
-            <button
-              className={lane.id === activeLaneId ? "is-active" : ""}
-              key={lane.id}
-              type="button"
-              onClick={() => onLaneChange(lane.id)}
+        <div className="field-note-features">
+          {featured.map((blog, index) => (
+            <article
+              className={`field-note-feature motion-item ${focusedFeatureIndex === index ? "is-in-focus" : ""}`}
+              key={blog.id}
+              ref={(node) => {
+                featureRefs.current[index] = node;
+              }}
             >
-              {lane.title}
+              <a className="field-note-image" href={blog.link} target="_blank" rel="noreferrer">
+                <img src={getBlogImage(blog, index)} alt="" loading="lazy" />
+                <i className="image-corner-mark" aria-hidden="true" />
+                <small className="image-plate-label" aria-hidden="true">
+                  Plate {String(index + 1).padStart(2, "0")}
+                </small>
+                {!blog.image ? <span>Archive image pending</span> : null}
+              </a>
+              <div className="field-note-copy">
+                <p className="field-note-index">
+                  {String(index + 1).padStart(2, "0")} / Field Note
+                </p>
+                <h3>{blog.title}</h3>
+                <p>{blog.description}</p>
+                <div className="field-note-meta">
+                  <span>{formatBlogDate(blog.date)}</span>
+                  <span><Heart size={14} aria-hidden="true" /> {blog.likes} reactions</span>
+                </div>
+                <a className="field-note-read" href={blog.link} target="_blank" rel="noreferrer">
+                  Read dispatch <ArrowUpRight size={15} aria-hidden="true" />
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <a className="field-notes-more motion-item" href="/blogs">
+          <span>See all field notes</span>
+          <ArrowDown size={22} aria-hidden="true" />
+        </a>
+      </div>
+    </section>
+  );
+}
+
+const hitlistProjects = [
+  {
+    id: "jedi",
+    priority: "01",
+    title: "JEDI",
+    subtitle: "Job Evaluation & Delivery Intelligence",
+    brief:
+      "A personalised job-intelligence platform for navigating placement season with ranking, eligibility, freshness and role-fit signals.",
+    inspiration:
+      "Jobright-style discovery is useful, but placement season needs sharper handling for eligibility, deadlines, local roles and rapidly changing opportunities.",
+    depth:
+      "JEDI sits between raw job listings and the final apply decision. It structures each role, compares it against a candidate profile, tracks changing priorities, and turns a noisy job stream into a manageable shortlist. The goal is to reduce repeated manual reading, eligibility checks and weak applications.",
+    status: "BUILDING",
+    focus: "Ranking pipeline",
+    active: true,
+    x: "68%",
+    y: "25%",
+    size: "large",
+    side: "left",
+    tone: "#14110d",
+    accent: "#8f4f28",
+  },
+  {
+    id: "learning-digest",
+    priority: "02",
+    title: "Passive Learning Digest",
+    subtitle: "Automated study preparation",
+    brief:
+      "An automated learning system that converts trusted material into small, structured, revisable learning digests.",
+    inspiration:
+      "Learning tools help once resources exist, but the repeated planning, gathering, organising and revision selection still consumes attention.",
+    depth:
+      "The system prepares compact lessons from core-subject material, keeps old concepts in rotation, and reduces the preparation overhead around learning. It does not remove effort from studying; it removes the repetitive organisation that competes with comprehension and recall.",
+    status: "RESEARCHING",
+    focus: "Digest grammar",
+    active: false,
+    x: "28%",
+    y: "28%",
+    size: "medium",
+    side: "right",
+    tone: "#17140f",
+    accent: "#7b5b31",
+  },
+  {
+    id: "trace-guard",
+    priority: "03",
+    title: "Trace Guard",
+    subtitle: "Agent trace evaluation",
+    brief:
+      "A runtime evaluation layer that detects hallucination, regression and bad reasoning paths before they become full failures.",
+    inspiration:
+      "Agent evaluations usually happen after the run has already failed. By then the system has spent tokens, polluted context and followed the wrong branch too far.",
+    depth:
+      "Trace Guard observes a developing agent trace and compares it with successful, failed and suspicious behavioural patterns. It looks for divergence, unsupported assumptions, repeated loops and known failure clusters, then intervenes early enough for the agent to retrieve evidence or restart safely.",
+    status: "PROTOTYPING",
+    focus: "Failure taxonomy",
+    active: false,
+    x: "78%",
+    y: "62%",
+    size: "medium",
+    side: "left",
+    tone: "#181111",
+    accent: "#7a332f",
+  },
+  {
+    id: "council-agents",
+    priority: "04",
+    title: "Council of Agents",
+    subtitle: "Persona-grounded simulation",
+    brief:
+      "A multi-agent simulation system grounded in detailed human personas for product criticism, disagreement and decision review.",
+    inspiration:
+      "Most multi-agent demos use shallow role labels. Real perspective needs memory, context, needs, habits and different ways of reacting to the same proposal.",
+    depth:
+      "Each council member is tied to a richer persona instead of a generic role prompt. The council can critique products, decisions or ideas from distinct human perspectives, exposing blind spots before real beta testing and making later research more focused.",
+    status: "CONCEPT",
+    focus: "Persona model",
+    active: false,
+    x: "48%",
+    y: "44%",
+    size: "small",
+    side: "right",
+    tone: "#151116",
+    accent: "#6d536d",
+  },
+  {
+    id: "discord-torrent",
+    priority: "05",
+    title: "Discord Torrent",
+    subtitle: "Distributed watch parties",
+    brief:
+      "A torrent-inspired watch-party system for synchronised, high-quality playback without placing all bandwidth on one host.",
+    inspiration:
+      "Discord watch parties are convenient but limited by stream quality, lag and compression. General communication tools are not built for serious media playback.",
+    depth:
+      "The app would coordinate rooms, participants and playback state while allowing video data to move through a distributed sharing model. The central question is whether peer-assisted transfer can preserve smooth synchronisation while keeping infrastructure cost extremely low.",
+    status: "CONCEPT",
+    focus: "Transfer protocol",
+    active: false,
+    x: "20%",
+    y: "64%",
+    size: "medium",
+    side: "right",
+    tone: "#0f1418",
+    accent: "#405c69",
+  },
+  {
+    id: "repo-temple",
+    priority: "06",
+    title: "Repo-Temple",
+    subtitle: "Repository context graph",
+    brief:
+      "A repository-mapping system that turns codebases into compact graphs for coding agents and developer navigation.",
+    inspiration:
+      "Starting a fresh agent session saves conversation context, but the agent still spends tokens rediscovering the repository structure from scratch.",
+    depth:
+      "Repo-Temple maps modules, files, imports, functions and execution paths into a compact graph. Instead of repeatedly loading the full repository, an agent retrieves only the relevant connected subgraph for the task, reducing context cost while preserving repository understanding.",
+    status: "RESEARCHING",
+    focus: "Graph schema",
+    active: false,
+    x: "55%",
+    y: "76%",
+    size: "large",
+    side: "left",
+    tone: "#101515",
+    accent: "#4b625e",
+  },
+  {
+    id: "portfolio",
+    priority: "PENDING",
+    title: "The Portfolio",
+    subtitle: "Current integration pass",
+    brief:
+      "A cinematic, interactive portfolio that presents projects, experience and learning as connected environments.",
+    inspiration:
+      "The visual direction comes from Dune-scale atmosphere and the need to avoid another conventional grid of identical project cards.",
+    depth:
+      "The portfolio brings finished projects, active experiments, technical learning and future ideas into one coherent visual system. The remaining work is interaction refinement, transition cleanup, copy tightening and making sure the cinematic layer never harms readability or performance.",
+    status: "ALMOST THERE",
+    focus: "Interaction polish",
+    active: true,
+    x: "34%",
+    y: "82%",
+    size: "small",
+    side: "right",
+    tone: "#18120b",
+    accent: "#8c6740",
+  },
+];
+
+function HitlistSection() {
+  const sectionRef = useRef(null);
+  const [activeId, setActiveId] = useState(null);
+  const [activeOrigin, setActiveOrigin] = useState({ x: "50%", y: "50%" });
+  const activeProject = hitlistProjects.find((project) => project.id === activeId);
+
+  const sectionStyle = activeProject
+    ? {
+        "--hitlist-x": activeOrigin.x,
+        "--hitlist-y": activeOrigin.y,
+        "--hitlist-tone": activeProject.tone,
+        "--hitlist-accent": activeProject.accent,
+      }
+    : undefined;
+
+  const showProject = (project, target) => {
+    const section = sectionRef.current;
+    if (section && target) {
+      const sectionRect = section.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const x = ((targetRect.left + targetRect.width / 2 - sectionRect.left) / sectionRect.width) * 100;
+      const y = ((targetRect.top + targetRect.height / 2 - sectionRect.top) / sectionRect.height) * 100;
+      setActiveOrigin({ x: `${Math.min(92, Math.max(8, x))}%`, y: `${Math.min(92, Math.max(8, y))}%` });
+    }
+    setActiveId(project.id);
+  };
+
+  const hideProject = (projectId) => {
+    setActiveId((current) => (current === projectId ? null : current));
+  };
+
+  return (
+    <section
+      ref={sectionRef}
+      className={`section-band hitlist-section ${activeProject ? "has-active-hit" : ""}`}
+      id="hitlist"
+      data-motion-section
+      style={sectionStyle}
+      onMouseLeave={() => setActiveId(null)}
+    >
+      <div className="hitlist-world" aria-hidden="true" />
+      <div className="hitlist-stage motion-item">
+        <header className="hitlist-intro">
+          <p className="section-kicker">08 / Project Hitlist</p>
+          <h2>Things I am trying to bring to life.</h2>
+          <p>
+            Ordered by what I want to attack next. Hover a project sigil to let its world surface without turning the page into another card grid.
+          </p>
+          <div className="hitlist-legend" aria-hidden="true">
+            <span>01 highest priority</span>
+            <span>hover / tap to inspect</span>
+          </div>
+        </header>
+
+        <div className="hitlist-field" aria-label="Project hitlist">
+          {hitlistProjects.map((project) => (
+            <button
+              className={`hitlist-node hitlist-node--${project.size} ${activeId && activeId !== project.id ? "is-muted" : ""} ${activeId === project.id ? "is-active" : ""}`}
+              key={project.id}
+              type="button"
+              style={{ "--node-x": project.x, "--node-y": project.y, "--node-accent": project.accent, "--node-tone": project.tone }}
+              onPointerEnter={(event) => {
+                if (event.pointerType !== "touch") showProject(project, event.currentTarget);
+              }}
+              onPointerLeave={(event) => {
+                if (event.pointerType !== "touch") hideProject(project.id);
+              }}
+              onFocus={(event) => showProject(project, event.currentTarget)}
+              onBlur={() => hideProject(project.id)}
+              onPointerUp={(event) => {
+                if (event.pointerType === "touch") {
+                  activeId === project.id ? hideProject(project.id) : showProject(project, event.currentTarget);
+                }
+              }}
+              aria-expanded={activeId === project.id}
+            >
+              <span className="hitlist-sigil" aria-hidden="true">
+                <i>{project.priority === "PENDING" ? "P" : project.priority}</i>
+              </span>
+              <span className="hitlist-node-label">
+                <span>{project.priority}</span>
+                <strong>{project.title}</strong>
+              </span>
             </button>
           ))}
         </div>
 
-        <div className="case-grid motion-item">
-          {filteredProjects.map((project) => {
-            const expanded = project.id === expandedId;
-            return (
-              <article className={`case-card ${expanded ? "is-expanded" : ""}`} key={project.id}>
-                <button className="case-main" type="button" onClick={() => setExpandedId(expanded ? "" : project.id)}>
-                  <span className="case-meta">
-                    {project.type} / {project.maturity}
-                  </span>
-                  <h3>{project.name}</h3>
-                  <p>{project.oneLine}</p>
-                  <span className="case-command">{expanded ? "Close case file" : "Open case file"}</span>
-                </button>
-                <div className="case-detail">
-                  <div>
-                    <span>PROBLEM</span>
-                    <p>{project.problem}</p>
-                  </div>
-                  <div>
-                    <span>SYSTEM</span>
-                    <p>{project.system}</p>
-                  </div>
-                  <div>
-                    <span>PROOF</span>
-                    <ul>
-                      {project.proof.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="chip-row">
-                    {project.tech.map((item) => (
-                      <span className="chip" key={item}>
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="case-links">
-                    {project.links.github ? <ExternalLink href={project.links.github}>Source</ExternalLink> : null}
-                    {project.links.demo ? <ExternalLink href={project.links.demo}>Live</ExternalLink> : null}
-                    {!project.links.github && !project.links.demo ? <span>Local case file pending</span> : null}
-                  </div>
+        <article className="hitlist-info" data-side={activeProject?.side ?? "right"} aria-live="polite">
+          {activeProject ? (
+            <>
+              <p className="hitlist-info-index">Priority {activeProject.priority} / {activeProject.status}</p>
+              <h3>{activeProject.title}</h3>
+              <p className="hitlist-info-subtitle">{activeProject.subtitle}</p>
+              <p className="hitlist-info-brief">{activeProject.brief}</p>
+              <div className="hitlist-rule" aria-hidden="true" />
+              <div className="hitlist-info-grid">
+                <section>
+                  <span>Inspiration</span>
+                  <p>{activeProject.inspiration}</p>
+                </section>
+                <section>
+                  <span>In depth</span>
+                  <p>{activeProject.depth}</p>
+                </section>
+              </div>
+              <div className="hitlist-status-row">
+                <div>
+                  <span>Status</span>
+                  <strong>{activeProject.status}</strong>
                 </div>
-              </article>
-            );
-          })}
+                <div>
+                  <span>Current focus</span>
+                  <strong>{activeProject.focus}</strong>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function TinyBuildsSection() {
+  const tinyBuilds = githubArchive.repos.filter((repo) => repo.category === "tiny-builds").slice(0, 6);
+
+  return (
+    <section className="section-band tiny-builds-section" id="tiny-builds" data-motion-section>
+      <div className="section-inner">
+        <SectionHeading
+          kicker="09 / Tiny Builds"
+          title="Small artifacts, kept small on purpose."
+          copy="Utilities, weekend experiments, and compact product fragments. They stay visible, but they do not pretend to be flagship systems."
+          align="split"
+        />
+
+        <div className="tiny-builds-grid motion-item">
+          {tinyBuilds.map((repo) => (
+            <a className="tiny-build-card" href={repo.url} key={repo.id} target="_blank" rel="noreferrer">
+              <span>{repo.icon}</span>
+              <div>
+                <h3>{repo.name}</h3>
+                <p>{repo.oneLine}</p>
+              </div>
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </a>
+          ))}
         </div>
       </div>
     </section>
@@ -665,56 +1138,49 @@ function ProjectGallerySection({ activeLaneId, onLaneChange }) {
 }
 
 function ContactSection() {
+  const workMail = links.email || "bhardwajharshmait23@gmail.com";
   const contactLinks = [
-    links.email ? { label: "Email", value: links.email, href: `mailto:${links.email}` } : { label: "Email", value: "bhardwajharshmait23@gmail.com" },
-    { label: "LinkedIn", value: "Connect professionally", href: links.linkedin },
-    { label: "GitHub", value: "Open the proof trail", href: links.github },
-    { label: "Resume", value: "Download the current brief", href: links.resume },
+    { label: "LinkedIn", value: "Connect", href: links.linkedin, icon: BriefcaseBusiness },
+    { label: "GitHub", value: "Proof trail", href: links.github, icon: Network },
+    { label: "Resume", value: "View PDF", href: links.resume, icon: FileText },
+    { label: "Location", value: "Delhi, India", icon: MapPin },
+    { label: "Dev.to", value: "Field notes", href: "https://dev.to/harsh_bhardwaj_809a89d3a7", icon: Rss },
   ];
 
   return (
     <section className="contact-section" id="contact" data-motion-section>
       <div className="contact-shell motion-item">
         <figure className="contact-worm" aria-label="Monumental desert signal artwork">
-          <img src="/backgrounds/contact-worm.png" alt="" />
+          <img className="contact-worm-art" src="/backgrounds/contact-worm.webp" alt="" />
         </figure>
 
         <aside className="contact-panel">
           <p className="contact-kicker">Signal / Final Relay</p>
-          <h2>Summon the Maker</h2>
-          <p className="contact-line">For collaboration, ideas, or interesting problems.</p>
+          <h2>Let&apos;s work together.</h2>
+          <p className="contact-line">I am open to opportunities in Delhi NCR, Bangalore, Mumbai, and remote roles.</p>
+          <a className="contact-workmail" href={`mailto:${workMail}`}>
+            <Mail size={17} strokeWidth={1.8} aria-hidden="true" />
+            <span>WorkMail:</span>
+            <strong>{workMail}</strong>
+          </a>
 
-          <div className="contact-grid" aria-label="Contact routes">
-            <div className="contact-group">
-              <span>Signal</span>
-              <strong>Send a signal.</strong>
-              <p>Open to systems, products, and thoughtful work.</p>
-            </div>
-
-            <div className="contact-group">
-              <span>Coordinates</span>
-              <strong>Delhi, India</strong>
-              <p>Available for remote-first work and serious build conversations.</p>
-            </div>
-
-            <div className="contact-group contact-group--links">
-              <span>Elsewhere</span>
-              <div className="contact-link-stack">
-                {contactLinks.map((item) =>
-                  item.href ? (
-                    <a href={item.href} key={item.label} target={item.href.startsWith("/") ? undefined : "_blank"} rel={item.href.startsWith("/") ? undefined : "noreferrer"}>
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                    </a>
-                  ) : (
-                    <div className="contact-muted-link" key={item.label}>
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
+          <div className="contact-icon-grid" aria-label="Contact routes">
+            {contactLinks.map((item) => {
+              const Icon = item.icon;
+              return item.href ? (
+                <a href={item.href} key={item.label} target={item.href.startsWith("/") ? undefined : "_blank"} rel={item.href.startsWith("/") ? undefined : "noreferrer"}>
+                  <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </a>
+              ) : (
+                <div className="contact-muted-link" key={item.label}>
+                  <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+              );
+            })}
           </div>
         </aside>
       </div>
@@ -724,7 +1190,6 @@ function ContactSection() {
 
 function App() {
   const rootRef = useRef(null);
-  const [activeLaneId, setActiveLaneId] = useState("all");
 
   useEffect(() => {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -771,11 +1236,14 @@ function App() {
 
   return (
     <div className="site-shell" ref={rootRef}>
+      <ArrakisIntro />
       <header className="nav">
         <nav className="nav-links" aria-label="Primary navigation">
           <a href="#worklog">Experience</a>
           <a href="#worklog">Worklog</a>
-          <a href="#project-gallery">Hitlist</a>
+          <a href="#hitlist">Hitlist</a>
+          <a href="#tiny-builds">Tiny Builds</a>
+          <a href="#field-notes">Writing</a>
           <a href="#contact">Contact</a>
         </nav>
         <a href="#top" className="avatar-link" aria-label="Harsh Bhardwaj home">
@@ -785,11 +1253,12 @@ function App() {
 
       <main>
         <HeroSection />
-        <AboutSection />
         <WorklogTimelineSection />
         <GitHubMapSection />
-        <WorkConsoleSection activeLaneId={activeLaneId} onLaneChange={setActiveLaneId} />
-        <ProjectGallerySection activeLaneId={activeLaneId} onLaneChange={setActiveLaneId} />
+        <FieldNotesSection />
+        <HitlistSection />
+        <TinyBuildsSection />
+        <AboutSection />
         <ContactSection />
       </main>
 
@@ -799,13 +1268,12 @@ function App() {
           <strong>Building, learning and Growing</strong>
         </div>
         <nav className="footer-links" aria-label="Footer navigation">
-          <a href="#top">Home</a>
-          <a href="#about">About</a>
-          <a href="#worklog">Experience</a>
-          <a href="#github-map">GitHub</a>
-          <a href="#work-console">Console</a>
-          <a href="#project-gallery">Projects</a>
-          <a href="#contact">Contact</a>
+          <a href="/#about">About</a>
+          <a href="/#worklog">Experience</a>
+          <a href="/#github-map">GitHub</a>
+          <a href="/#hitlist">Hitlist</a>
+          <a href="/#field-notes">Writing</a>
+          <a href="/#contact">Contact</a>
         </nav>
         <div className="footer-bottom">
           <span>CC BY-NC 2026</span>

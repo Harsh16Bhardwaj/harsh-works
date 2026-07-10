@@ -146,7 +146,7 @@ export const githubArchive = {
       category: "projects",
       url: "https://github.com/Harsh16Bhardwaj/WarWithin",
       icon: "WW",
-      logo: "/backgrounds/warwithin.png",
+      logo: "/backgrounds/warwithin.webp",
       pinned: true,
       phase: "Local-first app",
       users: "private browser state",

@@ -6,7 +6,7 @@ export const experiences = [
     company: "ClipHawk",
     type: "Product Engineering Contract",
     icon: "radar",
-    sigil: "/backgrounds/sigil-cliphawk.png",
+    sigil: "/backgrounds/sigil-cliphawk.webp",
     summary:
       "Built ClipHawk as a contract-ready AI/data automation system designed to orchestrate agents, audit metadata, and scale high-volume entity processing.",
     bullets: [
@@ -24,7 +24,7 @@ export const experiences = [
     company: "Stealth",
     type: "AI Evaluation / Data Annotation",
     icon: "shield",
-    sigil: "/backgrounds/sigil-stealth.png",
+    sigil: "/backgrounds/sigil-stealth.webp",
     summary:
       "Worked on data annotation, model refinement, red-teaming, and guardrail evaluation workflows for state-of-the-art AI systems.",
     bullets: [
@@ -42,7 +42,7 @@ export const experiences = [
     company: "PlugInn",
     type: "Startup / Product Build",
     icon: "plug",
-    sigil: "/backgrounds/sigil-pluginn.png",
+    sigil: "/backgrounds/sigil-pluginn.webp",
     summary:
       "Cofounded PlugInn and worked across product, engineering, schema design, routing, GTM, market research, and founding strategy.",
     bullets: [
@@ -60,7 +60,7 @@ export const experiences = [
     company: "OneStopESG, Dubai",
     type: "Product Engineering",
     icon: "lock",
-    sigil: "/backgrounds/sigil-onestopesg.png",
+    sigil: "/backgrounds/sigil-onestopesg.webp",
     summary:
       "Worked on production-facing ESG platform features including jobs, authentication, API security, analytics, caching, and admin-side systems.",
     bullets: [
@@ -78,7 +78,7 @@ export const experiences = [
     company: "Google Developer Groups, MAIT",
     type: "Community / Mentorship",
     icon: "globe",
-    sigil: "/backgrounds/sigil-gdg.png",
+    sigil: "/backgrounds/sigil-gdg.webp",
     summary:
       "Started the development journey as a web mentor at GDG MAIT, contributing to the official website, mentoring students, and volunteering in Google's Gen AI learning cohort.",
     bullets: [
