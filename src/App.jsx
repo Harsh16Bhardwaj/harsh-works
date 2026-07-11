@@ -1229,6 +1229,27 @@ function ContactSection() {
 
 function App() {
   const rootRef = useRef(null);
+  const navRef = useRef(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return undefined;
+
+    const closeOnOutside = (event) => {
+      if (!navRef.current?.contains(event.target)) setMobileNavOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [mobileNavOpen]);
 
   useEffect(() => {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1288,7 +1309,7 @@ function App() {
       smoothWheel: true,
       syncTouch: false,
       touchMultiplier: 1,
-      wheelMultiplier: 0.68,
+      wheelMultiplier: 0.92,
       prevent: (node) =>
         node instanceof Element &&
         Boolean(node.closest("[data-lenis-prevent], [role='dialog'], dialog, textarea, select")),
@@ -1305,17 +1326,24 @@ function App() {
   return (
     <div className="site-shell" ref={rootRef}>
       <ArrakisIntro />
-      <header className="nav">
-        <nav className="nav-links" aria-label="Primary navigation">
-          <a href="#worklog">Experience</a>
-          <a href="#worklog">Worklog</a>
-          <a href="#hitlist">Hitlist</a>
-          <a href="#field-notes">Writing</a>
-          <a href="#contact">Contact</a>
+      <header className={`nav ${mobileNavOpen ? "is-open" : ""}`} ref={navRef}>
+        <nav className="nav-links" aria-label="Primary navigation" id="primary-navigation">
+          <a href="#worklog" onClick={() => setMobileNavOpen(false)}>Experience</a>
+          <a href="#github-map" onClick={() => setMobileNavOpen(false)}>Projects</a>
+          <a href="#field-notes" onClick={() => setMobileNavOpen(false)}>Writing</a>
+          <a href="#hitlist" onClick={() => setMobileNavOpen(false)}>Hitlist</a>
+          <a href="#contact" onClick={() => setMobileNavOpen(false)}>Contact</a>
         </nav>
-        <a href="#top" className="avatar-link" aria-label="Harsh Bhardwaj home">
+        <button
+          className="avatar-link"
+          type="button"
+          aria-label="Toggle primary navigation"
+          aria-expanded={mobileNavOpen}
+          aria-controls="primary-navigation"
+          onClick={() => setMobileNavOpen((open) => !open)}
+        >
           <img src="/avatar-harsh.png" alt="" />
-        </a>
+        </button>
       </header>
 
       <main>
@@ -1337,8 +1365,8 @@ function App() {
           <a href="/#about">About</a>
           <a href="/#worklog">Experience</a>
           <a href="/#github-map">GitHub</a>
-          <a href="/#hitlist">Hitlist</a>
           <a href="/#field-notes">Writing</a>
+          <a href="/#hitlist">Hitlist</a>
           <a href="/#contact">Contact</a>
         </nav>
         <div className="footer-bottom">
