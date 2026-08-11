@@ -1,4 +1,5 @@
 import "../src/styles.css";
+import { Cormorant_Garamond } from "next/font/google";
 import { BlogProvider } from "../src/BlogStore.jsx";
 import {
   getSharedOpenGraph,
@@ -10,6 +11,13 @@ import {
   siteTitle,
   siteUrl,
 } from "../src/data/seo.js";
+
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  display: "swap",
+  variable: "--font-cormorant",
+});
 
 export const metadata = {
   metadataBase: new URL(siteUrl),
@@ -59,7 +67,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={cormorant.variable}>
       <body>
         <BlogProvider>{children}</BlogProvider>
       </body>

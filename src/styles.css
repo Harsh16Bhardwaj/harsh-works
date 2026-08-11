@@ -233,6 +233,7 @@ p {
   background:
     linear-gradient(180deg, rgba(255, 251, 244, 0.18), rgba(255, 246, 235, 0.05)),
     url("/backgrounds/clean-bg.webp") center / cover no-repeat;
+  background-color: #f3ece1;
   isolation: isolate;
 }
 
@@ -359,13 +360,55 @@ p {
 .hero-content {
   position: relative;
   z-index: 3;
-  display: flex;
+  display: grid;
   width: min(1180px, 100%);
-  flex-direction: column;
-  align-items: center;
+  min-height: clamp(320px, 44vh, 520px);
+  place-items: center;
   margin: 0 auto;
   color: #17130f;
   text-align: center;
+}
+
+.hero-copy {
+  grid-area: 1 / 1;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  animation: heroCopyReveal 360ms ease-out 1600ms forwards;
+}
+
+.hero-ciao {
+  grid-area: 1 / 1;
+  color: #9b5e2d;
+  font-family: var(--font-cormorant), Georgia, serif;
+  font-size: clamp(4.8rem, 11vw, 8.5rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.012em;
+  opacity: 1;
+  animation: heroCiaoDismiss 280ms ease-in 1320ms forwards;
+  pointer-events: none;
+}
+
+@keyframes heroCiaoDismiss {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes heroCopyReveal {
+  from {
+    opacity: 0;
+    visibility: visible;
+  }
+  to {
+    opacity: 1;
+    visibility: visible;
+  }
 }
 
 .hero-title-stack {
@@ -373,7 +416,7 @@ p {
   gap: 0;
   margin: 0;
   color: #16120f;
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: var(--font-cormorant), Georgia, serif;
   font-size: 4.5rem;
   font-weight: 600;
   line-height: 0.94;
@@ -387,7 +430,7 @@ p {
 .hero-title-line--name {
   margin-top: 18px;
   color: #a46d55;
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: var(--font-cormorant), Georgia, serif;
   font-size: 4.9rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -13607,4 +13650,33 @@ button.avatar-link:focus-visible {
 
 .nav-links.nav-links a::after {
   display: none !important;
+}
+
+/* Simple first-load greeting replacing the old cinematic loader. */
+.arrakis-intro,
+.ciao-intro.ciao-intro {
+  display: none !important;
+}
+
+/* Hero enters fully formed: only the in-place greeting swaps to the identity copy. */
+.hero-section::before,
+.hero-atmosphere {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy,
+  .hero-ciao {
+    animation: none !important;
+  }
+
+  .hero-copy {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+  }
+
+  .hero-ciao {
+    display: none !important;
+  }
 }

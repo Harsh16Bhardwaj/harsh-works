@@ -91,115 +91,24 @@ function buildHeatmapMonths(currentDate = new Date()) {
   });
 }
 
-function ArrakisIntro() {
-  const targetTitle = "ARRAKIS / PORTFOLIO";
-  const [visible, setVisible] = useState(true);
-  const [leaving, setLeaving] = useState(false);
-
-  useEffect(() => {
-    const introMode = new URLSearchParams(window.location.search).get("intro");
-    if (introMode === "skip") return undefined;
-
-    const hasSeenIntro = (() => {
-      try {
-        return window.sessionStorage.getItem("arrakisLoaderSeen") === "true";
-      } catch {
-        return false;
-      }
-    })();
-
-    if (introMode === "replay" || !hasSeenIntro) setVisible(true);
-    return undefined;
-  }, []);
-
-  useEffect(() => {
-    if (!visible) return undefined;
-
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timers = [];
-
-    document.documentElement.classList.add("arrakis-intro-active");
-
-    const markSeenAndLeave = () => {
-      try {
-        window.sessionStorage.setItem("arrakisLoaderSeen", "true");
-      } catch {
-        // If storage is unavailable, still let the cinematic intro finish cleanly.
-      }
-      setLeaving(true);
-    };
-
-    const finish = () => {
-      setVisible(false);
-      document.documentElement.classList.remove("arrakis-intro-active");
-    };
-
-    if (reduceMotion) {
-      timers.push(window.setTimeout(markSeenAndLeave, 520));
-      timers.push(window.setTimeout(finish, 880));
-    } else {
-      timers.push(window.setTimeout(markSeenAndLeave, 4560));
-      timers.push(window.setTimeout(finish, 4900));
-    }
-
-    return () => {
-      timers.forEach((timer) => window.clearTimeout(timer));
-      document.documentElement.classList.remove("arrakis-intro-active");
-    };
-  }, [visible]);
-
-  if (!visible) return null;
-
-  return (
-    <div className={`arrakis-intro ${leaving ? "is-leaving" : ""}`} role="status" aria-live="polite" aria-label="Loading portfolio">
-      <div className="arrakis-intro-blackout" aria-hidden="true" />
-      <div className="arrakis-intro-bg" aria-hidden="true" />
-      <div className="arrakis-intro-haze" aria-hidden="true" />
-      <div className="arrakis-intro-grain" aria-hidden="true" />
-
-      <div className="arrakis-intro-title">
-        <p>PERSONAL ARCHIVE ONLINE</p>
-        <h1 aria-label={targetTitle}>
-          <span className="arrakis-title-final" aria-hidden="true">
-            {targetTitle.split("").map((letter, index) => (
-              <span className="arrakis-title-letter" key={`${letter}-${index}`} style={{ "--letter-index": index, opacity: 0 }}>
-                {letter === " " ? "\u00A0" : letter}
-              </span>
-            ))}
-          </span>
-        </h1>
-        <span>INITIALIZING SIGNAL</span>
-      </div>
-
-      <div className="arrakis-progress" aria-hidden="true">
-        <span>LOADING ARCHIVE</span>
-        <div className="arrakis-progress-cells">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <i key={index} style={{ "--cell-index": index }} />
-          ))}
-        </div>
-        <small>SIGNAL ACQUIRED</small>
-      </div>
-    </div>
-  );
-}
-
 function HeroSection() {
   return (
-    <section className="hero-section" id="top" data-motion-section>
+    <section className="hero-section" id="top">
       <DeferredHeroScene density={1.45} />
-      <div className="hero-atmosphere" aria-hidden="true" />
 
       <div className="hero-content">
-        <h1 className="hero-title-stack motion-item" aria-label="Trying Building, Thinking and Engineering, Harsh Bhardwaj">
-          <span className="hero-title-line">Thinking,</span>
-          <span className="hero-title-line">Building &amp; Engineering..</span>
-          <span className="hero-title-line hero-title-line--name">HARSH BHARDWAJ</span>
-        </h1>
-        <p className="hero-subline motion-item">
-          Architecting intelligent systems across the stack. From foundational models to deployed
-          applications, building artifacts that prove capability.
-        </p>
+        <span className="hero-ciao" aria-hidden="true">Ciao</span>
+        <div className="hero-copy">
+          <h1 className="hero-title-stack" aria-label="Trying Building, Thinking and Engineering, Harsh Bhardwaj">
+            <span className="hero-title-line">Thinking,</span>
+            <span className="hero-title-line">Building &amp; Engineering..</span>
+            <span className="hero-title-line hero-title-line--name">HARSH BHARDWAJ</span>
+          </h1>
+          <p className="hero-subline">
+            Architecting intelligent systems across the stack. From foundational models to deployed
+            applications, building artifacts that prove capability.
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -1258,15 +1167,6 @@ function App() {
 
     let observer;
     const scope = createScope({ root: rootRef }).add(() => {
-      animate(".hero-title-line--name", {
-        opacity: [0, 1],
-        y: [28, 0],
-        filter: ["blur(8px)", "blur(0px)"],
-        duration: 1050,
-        delay: 260,
-        ease: "out(3)",
-      });
-
       observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -1325,7 +1225,6 @@ function App() {
 
   return (
     <div className="site-shell" ref={rootRef}>
-      <ArrakisIntro />
       <header className={`nav ${mobileNavOpen ? "is-open" : ""}`} ref={navRef}>
         <nav className="nav-links" aria-label="Primary navigation" id="primary-navigation">
           <a href="#worklog" onClick={() => setMobileNavOpen(false)}>Experience</a>
