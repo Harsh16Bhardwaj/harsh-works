@@ -97,7 +97,7 @@ function HeroSection() {
       <DeferredHeroScene density={1.45} />
 
       <div className="hero-content">
-        <span className="hero-ciao" aria-hidden="true">Ciao</span>
+        <span className="hero-ciao" aria-hidden="true">Cïao</span>
         <div className="hero-copy">
           <h1 className="hero-title-stack" aria-label="Trying Building, Thinking and Engineering, Harsh Bhardwaj">
             <span className="hero-title-line">Thinking,</span>
@@ -302,7 +302,7 @@ function WorklogTimelineSection() {
 
               return (
                 <article className={`worklog-item ${active ? "is-active" : ""}`} key={item.id}>
-                  <div className="worklog-meta" aria-hidden={!active}>
+                  <div className="worklog-meta">
                     <span>{item.period}</span>
                     <h3>{item.role}</h3>
                   </div>
@@ -320,7 +320,7 @@ function WorklogTimelineSection() {
                     <img className="worklog-sigil" src={item.sigil} alt="" loading="lazy" />
                   </button>
 
-                  <div className="worklog-card" aria-hidden={!active}>
+                  <div className="worklog-card">
                     <h4>{item.company}</h4>
                     <p>{item.summary}</p>
                     <ul>
@@ -419,8 +419,18 @@ function GitHubMapSection() {
                   <g
                     className={`archive-cluster ${selected ? "is-selected" : ""}`}
                     key={cluster.id}
+                    role="button"
+                    aria-pressed={selected}
+                    aria-label={`Show ${cluster.title} repositories`}
                     onMouseEnter={() => setActiveClusterId(cluster.id)}
                     onFocus={() => setActiveClusterId(cluster.id)}
+                    onClick={() => setActiveClusterId(cluster.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setActiveClusterId(cluster.id);
+                      }
+                    }}
                     tabIndex="0"
                   >
                     {cluster.nodes.slice(1).map((node, index) => (
@@ -476,6 +486,7 @@ function GitHubMapSection() {
                   className={cluster.id === activeClusterId ? "is-active" : ""}
                   key={cluster.id}
                   type="button"
+                  aria-pressed={cluster.id === activeClusterId}
                   onClick={() => {
                     setActiveClusterId(cluster.id);
                     setHoveredRepoId(null);
@@ -971,7 +982,7 @@ function HitlistSection() {
           <p className="section-kicker">08 / Project Hitlist</p>
           <h2>Things I am trying to bring to life.</h2>
           <p>
-            Ordered by what I want to attack next. Hover a project sigil to let its world surface without turning the page into another card grid.
+            Ordered by what I want to attack next. Pick a priority to surface its world without turning the page into another card grid.
           </p>
           <div className="hitlist-legend" aria-hidden="true">
             <span>01 highest priority</span>
