@@ -14078,3 +14078,24 @@ button.avatar-link:focus-visible {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* The game loads on its own route; this link adds no game code to the portfolio. */
+.nav.nav .orbit-launch {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-right: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgba(216, 180, 123, .4);
+  border-radius: 30px;
+  background: rgba(12, 24, 23, .94);
+  color: #e4c897;
+  font: 500 11px 'DM Sans', sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 5px 20px #0003;
+}
+.nav.nav .orbit-launch:hover { background: #273c32; }
+.nav.nav .orbit-launch:focus-visible { outline: 2px solid #e4c897; outline-offset: 4px; }
+@media (max-width: 820px) {
+  .nav.nav .orbit-launch { margin-right: 0; padding: 11px 14px; }
+}

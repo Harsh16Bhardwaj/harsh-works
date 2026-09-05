@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { animate, createScope, stagger } from "animejs";
 import Lenis from "lenis";
-import { ArrowDown, ArrowUpRight, BriefcaseBusiness, Database, FileText, GitCommitHorizontal, GitFork, Heart, Mail, MapPin, Network, Radio, Rss, Star } from "lucide-react";
+import { ArrowDown, ArrowUpRight, BriefcaseBusiness, Database, FileText, Gamepad2, GitCommitHorizontal, GitFork, Heart, Mail, MapPin, Network, Radio, Rss, Star } from "lucide-react";
 import { useBlogs } from "./BlogStore.jsx";
 import { formatBlogDate, getBlogImage } from "./data/blogs.js";
 import { experiences } from "./data/experiences.js";
@@ -1244,6 +1244,7 @@ function App() {
           <a href="#hitlist" onClick={() => setMobileNavOpen(false)}>Hitlist</a>
           <a href="#contact" onClick={() => setMobileNavOpen(false)}>Contact</a>
         </nav>
+        <a className="orbit-launch" href="/play"><Gamepad2 size={17} strokeWidth={1.6} /><span>Play a Game</span></a>
         <button
           className="avatar-link"
           type="button"
