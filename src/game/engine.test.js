@@ -168,7 +168,7 @@ test('concurrent joins preserve all seats and concurrent moves apply only once',
   assert.equal((await second({ type: 'poll', code: host.code }, host.token)).game.revision, 1);
 });
 
-test('bots wait 5–10 seconds; late and simultaneous polls advance only one turn', async t => {
+test('bots wait five seconds; late and simultaneous polls advance only one turn', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: 100000 });
   const request = createRoomHandler(memoryRoomStore());
   const host = await request({ type: 'create' });
@@ -176,7 +176,7 @@ test('bots wait 5–10 seconds; late and simultaneous polls advance only one tur
   await request({ type: 'start', code: host.code }, host.token);
   await request({ type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } }, host.token);
   const botTurn = await request({ type: 'move', code: host.code, revision: 1, action: { type: 'play', cards: [0] } }, guest.token);
-  assert.ok(botTurn.due - Date.now() >= 5000 && botTurn.due - Date.now() <= 10000);
+  assert.equal(botTurn.due - Date.now(), 5000);
   t.mock.timers.tick(4999);
   assert.equal((await request({ type: 'poll', code: host.code }, host.token)).game.revision, 2);
   t.mock.timers.tick(60000);
@@ -211,7 +211,19 @@ test('loading blocks early trigger and each suspense stage has its own deadline'
   assert.equal(result.game.phase, 'resolved');
   assert.equal(result.due - Date.now(), TIMING.resolved);
   assert.equal(phaseDelay({ phase: 'playing', players: [{ bot: true }], turn: 0 }, () => 0), 5000);
-  assert.equal(phaseDelay({ phase: 'playing', players: [{ bot: true }], turn: 0 }, () => .9999), 10000);
+  assert.equal(phaseDelay({ phase: 'playing', players: [{ bot: true }], turn: 0 }, () => .9999), 5000);
+});
+
+test('turns always move clockwise and only skip players who cannot act', () => {
+  let game=createGame(seats,seed(31));game.rank='A';
+  game.players.forEach(player=>{player.hand=['A','K','Q','J'];});
+  for(const [actor,next] of [['you','one'],['one','two'],['two','three'],['three','you']]) {
+    game=act(game,actor,{type:'play',cards:[0]});
+    assert.equal(game.players[game.turn].id,next);
+  }
+  game.players[1].alive=false;game.players[1].hand=[];game.turn=0;
+  game=act(game,'you',{type:'play',cards:[0]});
+  assert.equal(game.players[game.turn].id,'two');
 });
 
 test('rooms expire after inactivity and independent processes do not share memory', async t => {

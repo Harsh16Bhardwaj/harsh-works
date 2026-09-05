@@ -1,7 +1,7 @@
 export function Character({ kind = 0, active = false }) {
   const palettes = [['#b67441','#ebbe83','#283d39'],['#354d60','#a6c2ca','#282c39'],['#78917d','#dfcc9d','#293c36'],['#836379','#d6a99d','#302c3b']];
   const [skin, light, coat] = palettes[kind % 4];
-  return <svg className={`orbit-character ${active ? 'awake' : ''}`} viewBox="0 0 180 210" role="img" aria-label={['Vesper, the fox','Rook, the raven','Sable, the automaton','The masked traveller'][kind % 4]}>
+  return <svg className={`orbit-character ${active ? 'awake' : ''}`} viewBox="0 0 180 210" role="img" aria-label={['Rahul','Modi','Mamta','The masked traveller'][kind % 4]}>
     <ellipse cx="90" cy="198" rx="73" ry="9" fill="#000" opacity=".25" />
     <path d="M25 198 32 151 63 132h54l31 19 8 47Z" fill={coat} stroke="#b3a57b" strokeWidth="1" />
     <path d="m62 132 28 58 28-58-6 66H68Z" fill="#0f2023" /><path d="m62 131-15 25 21 5-6 9 28 25m28-64 15 25-21 5 6 9-28 25" fill="none" stroke={light} opacity=".55" />
@@ -23,5 +23,6 @@ export function Revolver({ phase, eliminated }) {
     <g className="gun-drum"><circle cx="180" cy="69" r="28" fill="#384946" stroke="#c0b58e" strokeWidth="3" /><circle cx="180" cy="69" r="6" fill="#a19672" />{Array.from({length:6},(_,i)=><circle key={i} cx={180+17*Math.cos(i*Math.PI/3)} cy={69+17*Math.sin(i*Math.PI/3)} r="5.5" fill="#101e1b" stroke="#8b8f77" />)}</g>
     <path className="gun-flash" d="m46 64-17-6 6-14-18 11L1 45l8 22L0 81l26-6 8 17 5-22Z" fill="#f4c779" />
     <g className="gun-smoke" fill="none" stroke="#d2cab3" strokeWidth="3" strokeLinecap="round"><path d="M42 61q-26-14-13-29t-10-25" /><path d="M40 67Q9 52 19 35" /></g>
+    <g className="gun-hands"><path className="gun-hand-support" d="M130 125c18-20 36-28 55-22l21 12-12 24-31-2-25 15Z" fill="#b98564" stroke="#e2b48d" strokeWidth="2" /><path className="gun-hand-grip" d="M218 116c12-19 25-26 39-20l25 17-11 30-34-1-19-13Z" fill="#b98564" stroke="#e2b48d" strokeWidth="2" /><path d="m139 129 28 4m59-13 32 12" stroke="#6e4b3c" strokeWidth="3" strokeLinecap="round" /></g>
   </svg><span className="orbit-gun-shadow" /></div>;
 }

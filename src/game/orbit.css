@@ -225,24 +225,29 @@
 .orbit-quick-rules { gap:10px; margin:20px 0; }
 .orbit-quick-rules li { font-size:10px; }
 .orbit-game { max-width:1260px; padding-top:15px; }
-.orbit-turn-banner { display:flex; align-items:center; justify-content:space-between; gap:25px; padding:18px 24px; margin:12px auto 0; border:1px solid #bea56d3d; border-left:3px solid #918263; background:linear-gradient(90deg,#27392eaa,#11242188); border-radius:4px; }
-.orbit-turn-banner.is-yours { border-left-color:#f0c477; background:linear-gradient(90deg,#55482c66,#1e382e66); }
-.orbit-turn-banner span { display:block; font-size:8px; letter-spacing:.18em; color:#b4bcaa; }
-.orbit-turn-banner strong { font-family:var(--font-cormorant),Georgia,serif; font-weight:600; font-size:31px; line-height:1.2; color:#e9d3a4; display:block; }
-.orbit-turn-banner small { display:block; font-size:10px; color:#aab9a5; margin-top:4px; }
-.orbit-current-turn { text-align:right; }
+.orbit-turn-banner { display:flex; align-items:center; justify-content:space-between; gap:18px; min-height:48px; padding:7px 14px; margin:7px auto 0; border:1px solid #bea56d2b; border-left:2px solid #918263; background:linear-gradient(90deg,#27392e73,#11242150); border-radius:4px; }
+.orbit-turn-banner.is-yours { border-left-color:#f0c477; background:linear-gradient(90deg,#55482c52,#1e382e4d); }
+.orbit-rank-badge { display:flex; align-items:baseline; gap:9px; }
+.orbit-turn-banner span { display:block; font-size:6px; letter-spacing:.18em; color:#9caa9c; }
+.orbit-turn-banner strong { font-weight:650; font-size:13px; line-height:1.1; letter-spacing:.08em; color:#e9d3a4; display:block; }
+.orbit-turn-banner small { display:block; font-size:6px; letter-spacing:.13em; color:#829489; margin-top:2px; }
+.orbit-current-turn { display:grid; grid-template-columns:8px auto; column-gap:7px; align-items:center; text-align:right; }
+.orbit-current-turn small { grid-column:2; }
+.orbit-turn-pulse { width:7px; height:7px; border-radius:50%; background:#e1bd75; box-shadow:0 0 0 0 #e1bd7566; animation:orbit-turn-pulse 1.6s ease-out infinite; }
 .orbit-turn-banner.is-yours .orbit-current-turn strong { color:#ffdb91; }
+.orbit-turn-banner.is-yours .orbit-turn-pulse { background:#ffdb91; }
 .orbit-table-area { height:460px; margin-top:0; }
 .orbit-scene { position:absolute; inset:0; pointer-events:none; z-index:0; }
 .orbit-scene canvas { display:block; width:100%; height:100%; }
-.has-3d .orbit-table { display:none; }
+.orbit-table-area:has(>.orbit-scene.is-ready) .orbit-table { display:none; }
 .orbit-seat { pointer-events:none; }
 .orbit-seat>.orbit-character { width:103px; margin-top:-35px; }
-.has-3d .orbit-seat>.orbit-character { opacity:0; height:75px; }
-.orbit-seat>div:not(.orbit-risk):not(.orbit-mini-hand) { background:#10201dde; padding:6px 10px; border:1px solid #9c97612e; border-radius:4px; }
-.orbit-seat.active>div:not(.orbit-risk):not(.orbit-mini-hand) { border-color:#e8c680; box-shadow:0 0 16px #d1ad6333; }
+.orbit-table-area:has(>.orbit-scene.is-ready) .orbit-seat>.orbit-character { opacity:0; height:75px; }
+.orbit-seat-label { display:flex; align-items:baseline; justify-content:center; gap:7px; min-width:76px; background:#10201de8; padding:5px 8px; border:1px solid #9c97612e; border-radius:999px; transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease; }
+.orbit-seat-label>span { font-size:5px; letter-spacing:.11em; color:#8fa092; }
+.orbit-seat.active .orbit-seat-label { transform:translateY(-3px) scale(1.08); border-color:#e8c680; box-shadow:0 0 0 3px #d1ad6317,0 0 22px #d1ad6355; }
+.orbit-seat.active::before { content:'▼'; position:absolute; top:-15px; left:50%; transform:translateX(-50%); color:#efc97e; font-size:10px; filter:drop-shadow(0 0 7px #efc97e); animation:orbit-active-seat .9s ease-in-out infinite alternate; }
 .orbit-seat strong { font-size:13px; }
-.orbit-seat-meta { font-size:7px; }
 .seat-0 { top:30px; }
 .seat-1 { top:150px; left:30px; }
 .seat-2 { top:150px; right:30px; }
@@ -270,11 +275,15 @@
 .orbit-gun-stage { position:relative; width:270px; height:115px; margin:0 auto; perspective:800px; }
 .orbit-gun { display:block; width:100%; height:100%; position:relative; z-index:1; transform:rotate(-5deg); filter:drop-shadow(0 10px 8px #0007); }
 .gun-drum { transform-origin:180px 69px; }
-.gun-loading .gun-drum { animation:orbit-load 3.5s cubic-bezier(.1,.8,.2,1) both; }
-.gun-loading .orbit-gun { animation:orbit-draw 1.2s ease-out both; }
-.gun-firing .orbit-gun { animation:orbit-aim 3.2s ease-in both; }
+.gun-loading .gun-drum { animation:orbit-load 2.8s cubic-bezier(.1,.8,.2,1) both; }
+.gun-loading .orbit-gun { animation:orbit-draw 1s ease-out both; }
+.gun-firing .orbit-gun { animation:orbit-aim 2.5s ease-in both; }
 .gun-bang .orbit-gun { animation:orbit-recoil 1.8s ease-out both; }
 .gun-resolved:not(.gun-bang) .orbit-gun,.gun-finished:not(.gun-bang) .orbit-gun { animation:orbit-lower 2.5s ease-in-out both; }
+.gun-hands { opacity:0; transform:translateY(34px); transform-origin:220px 130px; }
+.gun-loading .gun-hands { animation:orbit-grip 1s .2s ease-out both; }
+.gun-armed .gun-hands,.gun-firing .gun-hands,.gun-resolved .gun-hands,.gun-finished .gun-hands { opacity:1; transform:translateY(0); }
+.gun-firing .gun-hand-grip { animation:orbit-trigger 2.5s ease-in-out both; transform-origin:250px 125px; }
 .gun-flash { opacity:0; }
 .gun-bang .gun-flash { animation:orbit-muzzle .45s linear both; }
 @keyframes orbit-load { from { transform:rotate(-720deg); } to { transform:rotate(0); } }
@@ -283,6 +292,10 @@
 @keyframes orbit-recoil { 0% { transform:rotate(-12deg) scale(1.09); } 7% { transform:translateX(25px) rotate(10deg) scale(1.09); } 22% { transform:translateX(10px) rotate(1deg); } 60% { transform:rotate(-5deg); } 100% { transform:translateY(10px) rotate(2deg); } }
 @keyframes orbit-lower { 0%,30% { transform:rotate(-12deg) scale(1.09); } 100% { transform:translateY(10px) rotate(2deg); } }
 @keyframes orbit-muzzle { 0%,60% { opacity:1; } 100% { opacity:0; } }
+@keyframes orbit-grip { from { opacity:0; transform:translateY(34px); } to { opacity:1; transform:translateY(0); } }
+@keyframes orbit-trigger { 0%,72% { transform:translateX(0); } 82%,100% { transform:translateX(-5px) rotate(2deg); } }
+@keyframes orbit-turn-pulse { 70%,100% { box-shadow:0 0 0 8px #e1bd7500; } }
+@keyframes orbit-active-seat { to { transform:translate(-50%,4px); } }
 .orbit-risk-caption { color:#e7cf9e!important; font-size:13px!important; }
 .orbit-risk-caption span { display:block; font-size:10px; color:#b8bda5; margin-top:4px; }
 .orbit-fire { display:flex; align-items:center; justify-content:center; gap:35px; min-height:45px; width:100%; border:1px solid #e1b67d; background:#ad7146; color:#fff0d3; border-radius:3px; font-size:13px!important; }
@@ -297,8 +310,7 @@
 .orbit-wait { font-size:11px; }
 @media(min-width:761px) and (max-height:900px) {
  .orbit-header { min-height:60px; }
- .orbit-turn-banner { padding:10px 20px; margin-top:5px; }
- .orbit-turn-banner strong { font-size:27px; }
+ .orbit-turn-banner { padding:6px 12px; margin-top:4px; }
  .orbit-table-area { height:340px; }
  .seat-0 { top:0; }
  .seat-1,.seat-2 { top:82px; }
@@ -329,17 +341,17 @@
  .orbit-header-actions { gap:0; }
  .orbit-brand { font-size:10px; }
  .orbit-header { padding:0 12px; }
- .orbit-turn-banner { padding:12px; gap:10px; margin-top:6px; }
- .orbit-turn-banner strong { font-size:24px; }
- .orbit-turn-banner small { font-size:8px; max-width:150px; }
- .orbit-turn-banner span { font-size:6px; }
+ .orbit-turn-banner { padding:7px 10px; gap:8px; margin-top:5px; }
+ .orbit-rank-badge { gap:6px; }
+ .orbit-turn-banner strong { font-size:11px; }
+ .orbit-turn-banner small { font-size:5px; }
+ .orbit-turn-banner span { font-size:5px; }
  .orbit-table-area { height:360px; }
  .seat-0 { top:16px; }
  .seat-1 { top:82px; left:-5px; }
  .seat-2 { top:82px; right:-5px; }
  .orbit-seat strong { font-size:10px; }
- .orbit-seat-meta { font-size:5px; }
- .has-3d .orbit-seat>.orbit-character { height:65px; }
+ .orbit-table-area:has(>.orbit-scene.is-ready) .orbit-seat>.orbit-character { height:65px; }
  .orbit-seat>.orbit-character { width:80px; }
  .orbit-table-center { top:220px; }
  .orbit-claim { font-size:10px; }
@@ -362,7 +374,7 @@
  .orbit-turn-banner .orbit-current-turn { max-width:55%; }
 }
 .gun-hammer { transform-origin:236px 48px; }
-.gun-firing .gun-hammer { animation:orbit-cock 3.2s ease-in-out both; }
+.gun-firing .gun-hammer { animation:orbit-cock 2.5s ease-in-out both; }
 .gun-smoke { opacity:0; }
 .gun-bang .gun-smoke { animation:orbit-smoke 3.5s .15s ease-out both; }
 @keyframes orbit-cock { 0% { transform:rotate(0); } 45%,95% { transform:rotate(25deg); } 100% { transform:rotate(0); } }
@@ -371,18 +383,17 @@
 .orbit-claim-trail span { border-bottom:1px solid #b09b6940; padding:5px 0; }
 .orbit-claim-trail b { color:#e7d4ad; }
 @media(prefers-reduced-motion:reduce) { .orbit-app *, .orbit-app *::before,.orbit-app *::after { animation:none!important; transition:none!important; } .orbit-hand .orbit-card { transform:none; } .gun-bang .gun-flash { display:none; } }
-.has-3d .orbit-seat>.orbit-character { display:none; }
-.has-3d .orbit-seat .orbit-mini-hand { display:none; }
+.orbit-table-area:has(>.orbit-scene.is-ready) .orbit-seat>.orbit-character { display:none; }
 .orbit-table-area .orbit-seat { width:115px; }
 .orbit-table-area .orbit-seat strong { font-size:12px; }
 @media(max-width:760px) { .orbit-table-area .orbit-seat { width:87px; } .orbit-table-area .orbit-seat strong { font-size:10px; } }
 @media(max-width:760px) { .orbit-table-area { height:280px; } }
 @media(max-width:760px) {
  .orbit-game { padding-left:10px; padding-right:10px; }
- .orbit-table-area { height:235px; }
+ .orbit-table-area { height:270px; }
  .seat-0 { top:3px; }
  .seat-1,.seat-2 { top:58px; }
- .orbit-table-center { top:165px; }
+ .orbit-table-center { top:155px; }
  .orbit-player-zone { padding:0 4px; }
  .orbit-player-top { margin:8px 0 11px; }
  .orbit-hand { width:100%; overflow-x:auto; justify-content:flex-start; padding:8px 2px 4px; scrollbar-width:none; }
@@ -398,7 +409,7 @@
  .orbit-full-rules { gap:12px; line-height:1.55; }
 }
 @media(max-width:380px) {
- .orbit-turn-banner strong { font-size:21px; }
- .orbit-turn-banner small { font-size:7px; }
+ .orbit-turn-banner strong { font-size:10px; }
+ .orbit-turn-banner small { font-size:5px; }
  .orbit-hand .orbit-card { flex:0 0 58px; }
 }

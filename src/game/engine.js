@@ -1,7 +1,7 @@
 // Shared rules for the browser's solo table and the authoritative LAN table.
 export const RANKS = ['A', 'K', 'Q'];
 export const RANK_NAMES = { A: 'Aces', K: 'Kings', Q: 'Queens', J: 'Joker' };
-export const BOT_NAMES = ['Vesper', 'Rook', 'Sable'];
+export const BOT_NAMES = ['Rahul', 'Modi', 'Mamta'];
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const pick = (items, rng) => items[Math.floor(rng() * items.length)];
 
@@ -79,7 +79,13 @@ export function act(previous, actorId, action, rng = Math.random) {
     }
     // If everyone emptied their hands, another survivor still gets to challenge.
     if (state.players[state.turn] === player) {
-      state.turn = state.players.findIndex((p) => p.alive && p.id !== player.id);
+      for (let step = 1; step <= state.players.length; step++) {
+        const next = (state.turn + step) % state.players.length;
+        if (state.players[next].alive && state.players[next].id !== player.id) {
+          state.turn = next;
+          break;
+        }
+      }
     }
   } else if (action.type === 'challenge') {
     if (!state.last) throw new Error('There is no claim to challenge yet.');
@@ -137,7 +143,7 @@ export function resolveRisk(previous, rng = Math.random) {
   const survivors = state.players.filter((p) => p.alive);
   state.phase = survivors.length === 1 ? 'finished' : 'resolved';
   if (state.phase === 'finished') { state.winner = survivors[0].id; survivors[0].score += 500; }
-  state.log.unshift(`${eliminated ? 'BANG' : 'CLICK'}. ${player.name} ${eliminated ? 'is eliminated' : 'survives'}.`);
+  state.log.unshift(`${eliminated ? 'DEAD' : 'SAFE'}. ${player.name} ${eliminated ? 'is out of the game' : 'survives the shot'}.`);
   state.revision += 1;
   return state;
 }
