@@ -1,28 +1,26 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { act, armRisk, fireRisk, resolveRisk, botAction, BOT_NAMES, createGame, nextRound, viewFor } from './engine.js';
+import { act, armRisk, readyRisk, fireRisk, resolveRisk, botAction, BOT_NAMES, createGame, nextRound, viewFor } from './engine.js';
 
-const rooms = globalThis.__liarsOrbitRooms ??= new Map();
+import { phaseDelay } from './timing.js';
+import { getRoomStore } from './room-store.js';
 const TTL = 2 * 60 * 60 * 1000;
-const fail = (message) => { throw new Error(message); };
+const fail = (message, code = 'INVALID_ACTION', status = 400) => {
+  const error = new Error(message);
+  error.code = code;
+  error.status = status;
+  throw error;
+};
 const nameOf = (name) => typeof name === 'string' && name.trim().length > 0 ? name.trim().slice(0, 18) : 'Traveller';
 
 function schedule(room) {
-  clearTimeout(room.timer);
-  const game = room.game;
-  if (game.phase === 'finished') { room.due = null; return; }
-  const riskPlayer = game.players.find((p) => p.id === game.reveal?.loserId);
-  const delay = { reveal: 2600, firing: 1500, resolved: 3500, armed: riskPlayer?.bot ? 1400 : 20000 }[game.phase] ?? (game.players[game.turn].bot ? 1100 : 30000);
-  room.due = Date.now() + delay;
-  room.timer = setTimeout(() => {
-    if (Date.now() - room.touched > TTL) { rooms.delete(room.code); return; }
-    tick(room);
-  }, delay + 5);
-  room.timer.unref?.();
+  const delay = phaseDelay(room.game);
+  room.due = delay === null ? null : Date.now() + delay;
 }
 
 function tick(room) {
   if (!room.game || room.game.phase === 'finished' || Date.now() < room.due) return;
   if (room.game.phase === 'reveal') room.game = armRisk(room.game);
+  else if (room.game.phase === 'loading') room.game = readyRisk(room.game);
   else if (room.game.phase === 'armed') room.game = fireRisk(room.game, room.game.reveal.loserId);
   else if (room.game.phase === 'firing') room.game = resolveRisk(room.game);
   else if (room.game.phase === 'resolved') room.game = nextRound(room.game);
@@ -41,48 +39,66 @@ function output(room, member) {
   };
 }
 
-export function roomRequest(body, token) {
+// Compare-and-swap prevents overlapping requests from losing joins or moves.
+// Storage is in memory: production must run a single persistent Node process.
+export function createRoomHandler(store) {
+  return async function request(body, token) {
+    if (body.type === 'create') {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const code = randomBytes(3).toString('hex').toUpperCase();
+        const member = { id: randomUUID(), token: randomBytes(24).toString('hex'), name: nameOf(body.name) };
+        const room = { code, members: [member], host: member.id, game: null, touched: Date.now(), due: null };
+        if (await store.swap(code, null, JSON.stringify(room), TTL)) return { ...output(room, member), token: member.token };
+      }
+      fail('Could not open a table. Please try again.', 'ROOM_CREATE_FAILED', 503);
+    }
+    const code = String(body.code || '').trim().toUpperCase();
+    if (!/^[A-F0-9]{6}$/.test(code)) fail('Enter the six-character room code.', 'INVALID_CODE');
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const previous = await store.get(code);
+      if (!previous) fail('Room not found or expired. Check the code, or create a new room.', 'ROOM_NOT_FOUND', 404);
+      const room = JSON.parse(previous);
+      const result = applyRequest(room, body, token);
+      const next = room.members.length ? JSON.stringify(room) : null;
+      if (next === previous || await store.swap(code, previous, next, TTL)) return result;
+    }
+    fail('The table is busy. Please try that action again.', 'ROOM_BUSY', 409);
+  };
+}
+
+export async function roomRequest(body, token) {
+  return createRoomHandler(getRoomStore())(body, token);
+}
+
+function applyRequest(room, body, token) {
   const now = Date.now();
-  for (const [code, room] of rooms) if (now - room.touched > TTL) { clearTimeout(room.timer); rooms.delete(code); }
-  if (body.type === 'create') {
-    if (rooms.size >= 100) fail('The room server is full. Try again later.');
-    let code;
-    do { code = randomBytes(3).toString('hex').toUpperCase(); } while (rooms.has(code));
-    const member = { id: randomUUID(), token: randomBytes(24).toString('hex'), name: nameOf(body.name) };
-    const room = { code, members: [member], host: member.id, game: null, touched: now, due: null };
-    rooms.set(code, room);
-    return { ...output(room, member), token: member.token };
-  }
-  const code = String(body.code || '').toUpperCase();
-  const room = rooms.get(code);
-  if (!room) fail('Room not found. Check the code, or create a new room.');
   if (body.type === 'join') {
-    if (room.game) fail('This table is already playing. Ask the host to open a new room.');
-    if (room.members.length >= 4) fail('This table is full.');
+    if (room.game) fail('This table is already playing. Ask the host to open a new room.', 'ROOM_STARTED', 409);
+    if (room.members.length >= 4) fail('This table is full.', 'ROOM_FULL', 409);
     const member = { id: randomUUID(), token: randomBytes(24).toString('hex'), name: nameOf(body.name) };
     room.members.push(member);
     room.touched = now;
     return { ...output(room, member), token: member.token };
   }
   const member = room.members.find((p) => p.token === token);
-  if (!member) fail('Your seat could not be verified. Join the room again.');
-  room.touched = now;
+  if (!member) fail('Your saved seat is no longer valid. Join the room again.', 'SEAT_INVALID', 401);
+  if (now - room.touched > 60000 || body.type !== 'poll') room.touched = now;
   if (body.type === 'start') {
-    if (member.id !== room.host || room.game) fail('Only the host can start a waiting table.');
+    if (member.id !== room.host || room.game) fail('Only the host can start a waiting table.', 'HOST_ONLY', 403);
     const seats = room.members.map((p) => ({ id: p.id, name: p.name }));
     while (seats.length < 4) seats.push({ id: `bot-${seats.length}`, name: BOT_NAMES[seats.length - 1], bot: true });
     room.game = createGame(seats, Math.random, randomUUID());
     schedule(room);
   } else if (body.type === 'move') {
     tick(room);
-    if (!room.game || room.game.revision !== body.revision) fail('The table has moved on. Try your move again.');
+    if (!room.game || room.game.revision !== body.revision) fail('The table has moved on. Your view is refreshing.', 'STALE_STATE', 409);
     room.game = body.action?.type === 'fire' ? fireRisk(room.game, member.id) : act(room.game, member.id, body.action);
     schedule(room);
   } else if (body.type === 'leave') {
     if (!room.game) {
       room.members = room.members.filter((p) => p.id !== member.id);
       if (room.host === member.id) room.host = room.members[0]?.id;
-      if (!room.members.length) rooms.delete(code);
+
     } else {
       room.game.players.find((p) => p.id === member.id).bot = true;
       if (room.game.players[room.game.turn].id === member.id) schedule(room);

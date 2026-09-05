@@ -23,23 +23,23 @@ Friends use the host computer’s LAN address with port 3100 and the same room c
 
 ## Sprint 2: shared reveal
 
-1. Reveal the challenged cards over 2.6 seconds; explicitly identify an honest hand or a bluff. No survival result is exposed.
-2. Animate the gun and chamber. Only the player facing the penalty can fire. Bots fire after 1.4 seconds; the house acts for an absent human after 20 seconds.
-3. Firing lasts 1.5 seconds. The result remains hidden.
-4. Resolve the fixed hidden chamber and display CLICK/BANG to all participants. A room deals again after 3.5 seconds; solo offers Next hand.
+1. Reveal the challenged cards for 5 seconds; explicitly say who lied or who told the truth. No shot result is exposed.
+2. Prepare the gun in a separate 3.5-second stage. Only the player who lost the challenge can fire. Bots take 5–7.5 seconds; the game acts for an absent human after 20 seconds.
+3. Cock, aim and fire over 3.2 seconds. The result remains hidden until firing completes.
+4. Make a fresh random 1-in-6 roll and display CLICK/BANG to all participants. The result remains visible for 6.5 seconds; solo offers Next hand.
 5. The last survivor wins.
 
-The hidden live chamber is assigned once per match, in positions 1–6. Surviving does not reset it. The server validates who can fire and rejects stale or duplicate actions.
+Every shot is independent: 1-in-6 for BANG and 5-in-6 for CLICK. The server validates who can fire and rejects stale or duplicate actions.
 
 ## Sprint 3: bots
 
-Server timers schedule bot moves at 1.1 seconds, independent of client polling. Clients poll every 450 ms to observe state. Human turns time out after 30 seconds.
+Persisted deadlines pace bot moves at 5–10 seconds. Clients poll every 450 ms to observe and advance overdue state. Human turns time out after 30 seconds. In-memory rooms require one persistent Node process; separate Vercel instances cannot reliably share them.
 
-Bots see only their own hand and previously played cards, public claims, and revealed opponent history. A hypergeometric estimate measures whether an unknown five-card hand could support an opponent’s cumulative claims given the deck and known cards. It is blended with a smoothed revealed bluff rate. This is a heuristic, not a calibrated prediction of the latest claim. Personalities vary their challenge thresholds and bluff frequency. Greater chamber risk raises caution; bluffs tend to be small, and honest plays sometimes retain a matching card for later.
+Bots see only their own cards, public claims, and revealed opponent history. A probability estimate measures whether an unknown five-card set could support an opponent’s cumulative claims given the deck and known cards. It is blended with the opponent’s revealed lie rate. Personalities vary their challenge threshold and lie frequency. Bots usually keep lies small, and valid plays sometimes retain one matching card for later.
 
 ## Verification
 
-`npm.cmd run test:game`: 11 tests, including 500 seeded complete matches, illegal moves, joker truth, hidden information, forced challenges, room authorization/capacity, trigger authorization, no early outcome disclosure, bot-history sensitivity, and two-human/two-bot progression without polling.
+`npm.cmd run test:game`: 15 tests, including 500 seeded complete matches, illegal moves, joker rules, hidden information, forced challenges, an exact 1-in-6 shot boundary, room authorization/capacity, concurrent joins and moves, trigger authorization, staged deadlines, no early result disclosure, bot-history sensitivity, expiry, and process-isolation behavior.
 
 Browser QA: two isolated players through shared card reveal, manual trigger, firing, identical verdict and reconnect; audio activation and mute; five widths (360, 390, 768, 1366, 1440); controls visible on a 768px-high laptop; reduced motion; keyboard dismissal of rules. No page errors observed. Screenshots are in ignored `logs/`.
 

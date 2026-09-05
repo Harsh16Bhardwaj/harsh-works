@@ -1,19 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { act, armRisk, fireRisk, resolveRisk, bluffEstimate, botAction, createGame, mustChallenge, nextRound, validSave, viewFor } from './engine.js';
-import { roomRequest } from './rooms.js';
+import { act, armRisk, readyRisk, fireRisk, resolveRisk, bluffEstimate, botAction, createGame, mustChallenge, nextRound, validSave, viewFor } from './engine.js';
+import { createRoomHandler, roomRequest } from './rooms.js';
+import { memoryRoomStore } from './room-store.js';
+import { phaseDelay, TIMING } from './timing.js';
 
 const seats = ['you', 'one', 'two', 'three'].map((id, i) => ({ id, name: id, bot: i > 0 }));
 const seed = (n) => () => { n = (n * 1664525 + 1013904223) >>> 0; return n / 4294967296; };
 
-test('deal contains exactly six of each rank and two jokers; private views reveal no other hand or chamber', () => {
+test('deal contains exactly six of each rank and two jokers; private views reveal no other hand', () => {
   const game = createGame(seats, seed(1));
   const cards = game.players.flatMap((p) => p.hand);
   for (const rank of ['A', 'K', 'Q']) assert.equal(cards.filter((c) => c === rank).length, 6);
   assert.equal(cards.filter((c) => c === 'J').length, 2);
   const view = viewFor(game, 'you');
   assert.equal(view.players[0].hand.length, 5);
-  assert.ok(view.players.every((p) => !('chamber' in p)));
   assert.ok(view.players.slice(1).every((p) => !('hand' in p)));
 });
 
@@ -28,9 +29,9 @@ test('rejects out of turn, duplicate, oversized, invalid and nonexistent moves w
   assert.equal(JSON.stringify(game), original);
 });
 
-test('a joker is truthful; a false accusation penalizes challenger and scores defender', () => {
+test('a joker counts as the table rank; a wrong accusation penalizes the challenger', () => {
   let game = createGame(seats, seed(4));
-  game.rank = 'A'; game.players[0].hand = ['A', 'J']; game.players[1].chamber = 6;
+  game.rank = 'A'; game.players[0].hand = ['A', 'J'];
   game = act(game, 'you', { type: 'play', cards: [0, 1] });
   assert.equal('cards' in viewFor(game, 'one').last, false);
   game = act(game, 'one', { type: 'challenge' });
@@ -39,13 +40,13 @@ test('a joker is truthful; a false accusation penalizes challenger and scores de
   assert.equal(game.players[0].score, 120); assert.equal(game.phase, 'reveal');
 });
 
-test('one wrong rank exposes a bluff, advances only the loser, and eliminates on their fixed chamber', () => {
+test('one wrong rank exposes a lie and only the challenge loser takes a shot', () => {
   let game = createGame(seats, seed(9));
-  game.rank = 'A'; game.players[0].hand = ['A', 'Q']; game.players[0].chamber = 1;
+  game.rank = 'A'; game.players[0].hand = ['A', 'Q'];
   game = act(game, 'you', { type: 'play', cards: [0, 1] });
   game = act(game, 'one', { type: 'challenge' });
   assert.equal(game.reveal.liar, true); assert.equal(game.players[0].alive, true);
-  game = resolveRisk(fireRisk(armRisk(game), 'you'));
+  game = resolveRisk(fireRisk(readyRisk(armRisk(game)), 'you'), () => 0);
   assert.equal(game.players[0].alive, false);
   assert.equal(game.players[1].score, 100); assert.equal(game.players[1].risks, 0);
   const next = nextRound(game, seed(2));
@@ -71,8 +72,9 @@ test('500 seeded full matches terminate, preserve invariants, and award one winn
     let turns = 0;
     while (game.phase !== 'finished' && turns++ < 1000) {
       if (game.phase === 'reveal') game = armRisk(game);
+      else if (game.phase === 'loading') game = readyRisk(game);
       else if (game.phase === 'armed') game = fireRisk(game, game.reveal.loserId);
-      else if (game.phase === 'firing') game = resolveRisk(game);
+      else if (game.phase === 'firing') game = resolveRisk(game, rng);
       else if (game.phase === 'resolved') game = nextRound(game, rng);
       else {
         const player = game.players[game.turn];
@@ -87,45 +89,57 @@ test('500 seeded full matches terminate, preserve invariants, and award one winn
   }
 });
 
-test('room credentials, host permissions, room capacity and stale moves are enforced', () => {
-  const host = roomRequest({ type: 'create', name: 'Host' });
-  const guest = roomRequest({ type: 'join', code: host.code, name: 'Guest' });
+test('room credentials, host permissions, room capacity and stale moves are enforced', async () => {
+  const host = await roomRequest({ type: 'create', name: 'Host' });
+  const guest = await roomRequest({ type: 'join', code: host.code, name: 'Guest' });
   assert.equal(guest.seats.length, 2);
-  assert.throws(() => roomRequest({ type: 'poll', code: host.code }, 'wrong-token'));
-  assert.throws(() => roomRequest({ type: 'start', code: host.code }, guest.token));
-  const started = roomRequest({ type: 'start', code: host.code }, host.token);
+  await assert.rejects(() => roomRequest({ type: 'poll', code: host.code }, 'wrong-token'));
+  await assert.rejects(() => roomRequest({ type: 'start', code: host.code }, guest.token));
+  const started = await roomRequest({ type: 'start', code: host.code }, host.token);
   assert.equal(started.game.players.length, 4);
   assert.ok(started.game.players.filter((p) => p.id !== host.playerId).every((p) => !('hand' in p)));
-  assert.ok(!JSON.stringify(started).includes('chamber'));
   assert.ok(!JSON.stringify(started).includes(guest.token));
-  assert.throws(() => roomRequest({ type: 'join', code: host.code }));
-  const moved = roomRequest({ type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } }, host.token);
+  await assert.rejects(() => roomRequest({ type: 'join', code: host.code }));
+  const moved = await roomRequest({ type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } }, host.token);
   assert.equal(moved.game.revision, 1);
-  assert.throws(() => roomRequest({ type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } }, host.token));
-  const g = roomRequest({ type: 'poll', code: host.code }, guest.token);
+  await assert.rejects(() => roomRequest({ type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } }, host.token));
+  const g = await roomRequest({ type: 'poll', code: host.code }, guest.token);
   assert.equal(g.game.players.find((p) => p.id === guest.playerId).hand.length, 5);
   assert.ok(!('hand' in g.game.players[0]));
 });
 
-test('lobby transfers host on leave and limits seats to four', () => {
-  const host = roomRequest({ type: 'create' });
-  const guest = roomRequest({ type: 'join', code: host.code });
-  roomRequest({ type: 'join', code: host.code }); roomRequest({ type: 'join', code: host.code });
-  assert.throws(() => roomRequest({ type: 'join', code: host.code }));
-  roomRequest({ type: 'leave', code: host.code }, host.token);
-  assert.equal(roomRequest({ type: 'poll', code: host.code }, guest.token).host, true);
+test('lobby transfers host on leave and limits seats to four', async () => {
+  const host = await roomRequest({ type: 'create' });
+  const guest = await roomRequest({ type: 'join', code: host.code });
+  await roomRequest({ type: 'join', code: host.code }); await roomRequest({ type: 'join', code: host.code });
+  await assert.rejects(() => roomRequest({ type: 'join', code: host.code }));
+  await roomRequest({ type: 'leave', code: host.code }, host.token);
+  assert.equal((await roomRequest({ type: 'poll', code: host.code }, guest.token)).host, true);
 });
 
 
 test('only the losing player can fire, and the result is secret until resolution', () => {
-  let game=createGame(seats,seed(3));game.rank='A';game.players[0].hand=['Q'];game.players[0].chamber=1;
+  let game=createGame(seats,seed(3));game.rank='A';game.players[0].hand=['Q'];
   game=act(game,'you',{type:'play',cards:[0]});game=act(game,'one',{type:'challenge'});
   assert.throws(()=>fireRisk(game,'you'));
-  game=armRisk(game);assert.throws(()=>fireRisk(game,'one'));
+  game=readyRisk(armRisk(game));assert.throws(()=>fireRisk(game,'one'));
   game=fireRisk(game,'you');assert.equal(viewFor(game,'one').reveal.eliminated,undefined);
   assert.equal(game.players[0].alive,true);assert.throws(()=>fireRisk(game,'you'));
-  game=resolveRisk(game);assert.equal(game.reveal.eliminated,true);
+  game=resolveRisk(game,()=>0);assert.equal(game.reveal.eliminated,true);
   assert.throws(()=>resolveRisk(game));
+});
+
+test('every shot uses a fresh independent one-in-six roll', () => {
+  let game = createGame(seats, seed(12));
+  game.rank = 'A'; game.players[0].hand = ['Q'];
+  game = act(game, 'you', { type: 'play', cards: [0] });
+  game = act(game, 'one', { type: 'challenge' });
+  const fired = fireRisk(readyRisk(armRisk(game)), 'you');
+  assert.equal(resolveRisk(fired, () => 1 / 6 - Number.EPSILON).reveal.eliminated, true);
+  assert.equal(resolveRisk(fired, () => 1 / 6).reveal.eliminated, false);
+  let bangs = 0;
+  for (let i = 0; i < 600; i++) bangs += Number(resolveRisk(fired, () => (i + 0.5) / 600).reveal.eliminated);
+  assert.equal(bangs, 100);
 });
 
 test('bot suspicion uses cumulative claims and revealed opponent history', () => {
@@ -139,15 +153,72 @@ test('bot suspicion uses cumulative claims and revealed opponent history', () =>
   const view=viewFor(game,'you');assert.ok(view.players.slice(1).every(p=>!('played' in p)));
 });
 
-test('two-human room bots advance on server timers without client polling', async () => {
-  const host=roomRequest({type:'create',name:'Host'});const guest=roomRequest({type:'join',code:host.code,name:'Guest'});
-  roomRequest({type:'start',code:host.code},host.token);
-  roomRequest({type:'move',code:host.code,revision:0,action:{type:'play',cards:[0]}},host.token);
-  roomRequest({type:'move',code:host.code,revision:1,action:{type:'play',cards:[0]}},guest.token);
-  const raw=globalThis.__liarsOrbitRooms.get(host.code);
-  assert.equal(raw.game.players[raw.game.turn].bot,true);
-  assert.ok(raw.due-Date.now()<=1150);
-  await new Promise(resolve=>setTimeout(resolve,1250));
-  assert.ok(raw.game.revision>=3,'Bot stalled without polling');
-  clearTimeout(raw.timer);globalThis.__liarsOrbitRooms.delete(host.code);
+test('concurrent joins preserve all seats and concurrent moves apply only once', async () => {
+  const store = memoryRoomStore();
+  const first = createRoomHandler(store), second = createRoomHandler(store);
+  const host = await first({ type: 'create' });
+  const joins = await Promise.allSettled(Array.from({ length: 4 }, (_, i) => second({ type: 'join', code: ` ${host.code.toLowerCase()} `, name: `Guest ${i}` })));
+  assert.equal(joins.filter(r => r.status === 'fulfilled').length, 3);
+  const lobby = await first({ type: 'poll', code: host.code }, host.token);
+  assert.equal(new Set(lobby.seats.map(s => s.id)).size, 4);
+  await first({ type: 'start', code: host.code }, host.token);
+  const move = { type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } };
+  const moves = await Promise.allSettled([first(move, host.token), second(move, host.token)]);
+  assert.equal(moves.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal((await second({ type: 'poll', code: host.code }, host.token)).game.revision, 1);
+});
+
+test('bots wait 5–10 seconds; late and simultaneous polls advance only one turn', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 100000 });
+  const request = createRoomHandler(memoryRoomStore());
+  const host = await request({ type: 'create' });
+  const guest = await request({ type: 'join', code: host.code });
+  await request({ type: 'start', code: host.code }, host.token);
+  await request({ type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } }, host.token);
+  const botTurn = await request({ type: 'move', code: host.code, revision: 1, action: { type: 'play', cards: [0] } }, guest.token);
+  assert.ok(botTurn.due - Date.now() >= 5000 && botTurn.due - Date.now() <= 10000);
+  t.mock.timers.tick(4999);
+  assert.equal((await request({ type: 'poll', code: host.code }, host.token)).game.revision, 2);
+  t.mock.timers.tick(60000);
+  const polls = await Promise.all([request({ type: 'poll', code: host.code }, host.token), request({ type: 'poll', code: host.code }, guest.token)]);
+  assert.ok(polls.every(p => p.game.revision === 3));
+  assert.ok(polls[0].due > Date.now(), 'Late reconnect must not fast-forward the whole table');
+});
+
+test('loading blocks early trigger and each suspense stage has its own deadline', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 100000 });
+  const request = createRoomHandler(memoryRoomStore());
+  const host = await request({ type: 'create' }), guest = await request({ type: 'join', code: host.code });
+  await request({ type: 'start', code: host.code }, host.token);
+  await request({ type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } }, host.token);
+  const reveal = await request({ type: 'move', code: host.code, revision: 1, action: { type: 'challenge' } }, guest.token);
+  assert.equal(reveal.due - Date.now(), TIMING.reveal);
+  t.mock.timers.tick(TIMING.reveal);
+  const loading = await request({ type: 'poll', code: host.code }, host.token);
+  assert.equal(loading.game.phase, 'loading');
+  const loser = loading.game.reveal.loserId === host.playerId ? host : guest;
+  await assert.rejects(request({ type: 'move', code: host.code, revision: loading.game.revision, action: { type: 'fire' } }, loser.token));
+  t.mock.timers.tick(TIMING.loading);
+  const armed = await request({ type: 'poll', code: host.code }, host.token);
+  assert.equal(armed.game.phase, 'armed');
+  const firing = await request({ type: 'move', code: host.code, revision: armed.game.revision, action: { type: 'fire' } }, loser.token);
+  assert.equal(firing.due - Date.now(), TIMING.firing);
+  assert.equal(firing.game.reveal.eliminated, undefined);
+  t.mock.timers.tick(TIMING.firing - 1);
+  assert.equal((await request({ type: 'poll', code: host.code }, host.token)).game.phase, 'firing');
+  t.mock.timers.tick(1);
+  const result = await request({ type: 'poll', code: host.code }, host.token);
+  assert.equal(result.game.phase, 'resolved');
+  assert.equal(result.due - Date.now(), TIMING.resolved);
+  assert.equal(phaseDelay({ phase: 'playing', players: [{ bot: true }], turn: 0 }, () => 0), 5000);
+  assert.equal(phaseDelay({ phase: 'playing', players: [{ bot: true }], turn: 0 }, () => .9999), 10000);
+});
+
+test('rooms expire after inactivity and independent processes do not share memory', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 100000 });
+  const request = createRoomHandler(memoryRoomStore());
+  const host = await request({ type: 'create' });
+  await assert.rejects(createRoomHandler(memoryRoomStore())({ type: 'join', code: host.code }), /not found/);
+  t.mock.timers.tick(2 * 60 * 60 * 1000 + 1);
+  await assert.rejects(request({ type: 'join', code: host.code }), /expired/);
 });

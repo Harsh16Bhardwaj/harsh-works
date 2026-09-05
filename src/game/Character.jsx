@@ -18,9 +18,10 @@ export function Revolver({ phase, eliminated }) {
     <path d="m242 96 16 37m-25-32 14 35" stroke="#382c25" strokeWidth="3" />
     <path d="M48 56h147l25-15 34 18-1 31h-71l-8-10H48Z" fill="url(#gunmetal)" stroke="#c5b990" strokeWidth="2" />
     <path d="M51 52h124v8H51Z" fill="#8d9789" /><path d="M53 67h99" stroke="#192a27" strokeWidth="4" />
-    <path d="m224 46 9-16 13 7-4 15" fill="#a4a793" stroke="#d5c59a" />
+    <path className="gun-hammer" d="m224 46 9-16 13 7-4 15" fill="#a4a793" stroke="#d5c59a" />
     <path d="M202 90q-5 30 24 23l5-24m-16 0-2 14" fill="none" stroke="#b6ad8b" strokeWidth="4" />
     <g className="gun-drum"><circle cx="180" cy="69" r="28" fill="#384946" stroke="#c0b58e" strokeWidth="3" /><circle cx="180" cy="69" r="6" fill="#a19672" />{Array.from({length:6},(_,i)=><circle key={i} cx={180+17*Math.cos(i*Math.PI/3)} cy={69+17*Math.sin(i*Math.PI/3)} r="5.5" fill="#101e1b" stroke="#8b8f77" />)}</g>
     <path className="gun-flash" d="m46 64-17-6 6-14-18 11L1 45l8 22L0 81l26-6 8 17 5-22Z" fill="#f4c779" />
+    <g className="gun-smoke" fill="none" stroke="#d2cab3" strokeWidth="3" strokeLinecap="round"><path d="M42 61q-26-14-13-29t-10-25" /><path d="M40 67Q9 52 19 35" /></g>
   </svg><span className="orbit-gun-shadow" /></div>;
 }

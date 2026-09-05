@@ -34,7 +34,7 @@ export function createGame(seats, rng = Math.random, id = String(Date.now())) {
     reveal: null, winner: null, log: [], revision: 0,
     players: seats.map((seat, i) => ({
       id: seat.id, name: seat.name, bot: Boolean(seat.bot), style: i === 0 ? 0 : (i - 1) % 3, character: (i + 3) % 4,
-      alive: true, hand: [], played: [], risks: 0, chamber: 1 + Math.floor(rng() * 6), score: 0, caught: 0, honest: 0,
+      alive: true, hand: [], played: [], risks: 0, score: 0, caught: 0, honest: 0,
     })),
   };
   if (seats.length < 2 || seats.length > 4) throw new Error('A table needs 2–4 players.');
@@ -90,9 +90,9 @@ export function act(previous, actorId, action, rng = Math.random) {
     accused[liar ? 'caught' : 'honest'] += 1;
     state.reveal = {
       cards: state.last.cards, liar, accused: accused.name, challenger: player.name,
-      loser: loser.name, loserId: loser.id, risk: loser.risks + 1,
+      loser: loser.name, loserId: loser.id, shot: loser.risks + 1,
     };
-    state.log.unshift(`${player.name} called LIAR. ${accused.name} was ${liar ? 'bluffing' : 'honest'}. ${loser.name} faces the chamber.`);
+    state.log.unshift(`${player.name} called LIAR. ${accused.name} ${liar ? 'lied' : 'told the truth'}. ${loser.name} must pull the trigger.`);
     state.phase = 'reveal';
     state.nextStarter = state.players.indexOf(loser);
   } else {
@@ -113,20 +113,25 @@ export function nextRound(previous, rng = Math.random) {
 
 export function armRisk(previous) {
   if (previous.phase !== 'reveal') throw new Error('Reveal the cards first.');
+  return { ...copy(previous), phase: 'loading', revision: previous.revision + 1 };
+}
+
+export function readyRisk(previous) {
+  if (previous.phase !== 'loading') throw new Error('The gun is not ready yet.');
   return { ...copy(previous), phase: 'armed', revision: previous.revision + 1 };
 }
 
 export function fireRisk(previous, actorId) {
-  if (previous.phase !== 'armed' || previous.reveal.loserId !== actorId) throw new Error('Only the player facing the chamber can fire.');
+  if (previous.phase !== 'armed' || previous.reveal.loserId !== actorId) throw new Error('Only the player who lost the challenge can pull the trigger.');
   return { ...copy(previous), phase: 'firing', revision: previous.revision + 1 };
 }
 
-export function resolveRisk(previous) {
+export function resolveRisk(previous, rng = Math.random) {
   if (previous.phase !== 'firing') throw new Error('The trigger has not been pulled.');
   const state = copy(previous);
   const player = state.players.find((p) => p.id === state.reveal.loserId);
   player.risks += 1;
-  const eliminated = player.risks >= player.chamber;
+  const eliminated = rng() < 1 / 6;
   if (eliminated) player.alive = false;
   state.reveal.eliminated = eliminated;
   const survivors = state.players.filter((p) => p.alive);
@@ -141,7 +146,7 @@ export function resolveRisk(previous) {
 export function viewFor(state, id) {
   return {
     ...state,
-    players: state.players.map(({ chamber, hand, played, ...p }) => ({
+    players: state.players.map(({ hand, played, ...p }) => ({
       ...p, count: hand.length, ...(p.id === id ? { hand: [...hand], played: [...played] } : {}),
     })),
     last: state.last ? { player: state.last.player, count: state.last.count } : null,
@@ -186,13 +191,12 @@ export function botAction(view, rng = Math.random) {
 
 export function validSave(state) {
   return Boolean(state && state.version === 2 && typeof state.id === 'string' &&
-    ['playing', 'reveal', 'armed', 'firing', 'resolved', 'finished'].includes(state.phase) && RANKS.includes(state.rank) &&
+    ['playing', 'reveal', 'loading', 'armed', 'firing', 'resolved', 'finished'].includes(state.phase) && RANKS.includes(state.rank) &&
     Number.isInteger(state.turn) && state.turn >= 0 && state.turn < 4 &&
     Array.isArray(state.players) && state.players.length === 4 && state.players[0].id === 'you' &&
     Array.isArray(state.log) && state.log.every((line) => typeof line === 'string') &&
     state.players.every((p) => typeof p.id === 'string' && typeof p.name === 'string' &&
-      Number.isFinite(p.score) && p.score >= 0 && Number.isInteger(p.chamber) && p.chamber >= 1 && p.chamber <= 6 &&
-      Number.isInteger(p.risks) && p.risks >= 0 && p.risks <= 6 && typeof p.alive === 'boolean' &&
+      Number.isFinite(p.score) && p.score >= 0 && Number.isInteger(p.risks) && p.risks >= 0 && typeof p.alive === 'boolean' &&
       Array.isArray(p.hand) && p.hand.length <= 5 && p.hand.every((rank) => [...RANKS, 'J'].includes(rank))) &&
     (!state.last || (Number.isInteger(state.last.player) && state.last.player >= 0 && state.last.player < 4 &&
       Array.isArray(state.last.cards) && state.last.cards.length >= 1 && state.last.cards.length <= 3 &&
