@@ -453,3 +453,104 @@
  .orbit-flip .orbit-card { width:37px; height:52px; }
  .orbit-reveal h2 { font-size:19px; }
 }
+
+/* Last Bluff: compact lobby and an unobstructed, cinematic table. */
+.last-bluff-mark { width:31px; height:24px; overflow:visible; fill:none; stroke:currentColor; stroke-width:1.4; }
+.last-bluff-mark circle { fill:#d8b47b; stroke:#081617; }
+.orbit-entry-header { min-height:76px; }
+.orbit-stakes { margin-top:22px; color:#d8d5c9; font:500 18px/1.5 var(--font-dm-sans),sans-serif; letter-spacing:-.02em; }
+.orbit-mode button { min-height:48px; font-size:13px; }
+.orbit-name-field { margin:18px 0 6px; padding:13px; border:1px solid #d8b47b55; border-radius:5px; background:#d8b47b0a; box-shadow:inset 0 0 24px #d8b47b08; }
+.orbit-name-field .orbit-label { color:#e6c890; font-size:10px; }
+.orbit-name-field input { min-height:48px; font-size:15px; background:#071514a8; }
+.orbit-quick-rules li { align-items:flex-start; font-size:12px; line-height:1.55; }
+.orbit-quick-rules li>b { min-width:25px; font-size:19px; }
+.orbit-quick-rules strong { font-size:13px; }
+.orbit-or { display:flex; align-items:center; gap:10px; margin:13px 0; color:#75877d; font-size:8px; letter-spacing:.2em; }
+.orbit-or::before,.orbit-or::after { content:''; height:1px; flex:1; background:#aebb9e1d; }
+.orbit-create-muted { opacity:.28; pointer-events:none; }
+.orbit-cast span { font-size:8px; color:#c3c8b8; }
+
+.orbit-game { position:relative; max-width:1180px; padding:14px 32px 28px; }
+.orbit-game-tools { display:flex; align-items:center; justify-content:space-between; min-height:42px; margin-bottom:6px; }
+.orbit-game-tools>div { display:flex; align-items:center; gap:8px; }
+.orbit-tool,.orbit-leave { min-height:36px; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:8px 11px; border:1px solid #a9bca022; border-radius:999px; color:#afbbaf; background:#0d1e1caa; backdrop-filter:blur(8px); }
+.orbit-tool:hover { color:#ead5a7; border-color:#d8b47b55; }
+.orbit-tool.invite span { font-size:9px; letter-spacing:.12em; }
+.orbit-leave { color:#efc5ad; border-color:#b77c5f55; font-size:10px; letter-spacing:.08em; }
+.orbit-game-tools .orbit-volume { width:58px; }
+.orbit-turn-banner { max-width:760px; min-height:44px; margin:0 auto -2px; position:relative; z-index:5; background:#10211fc9; backdrop-filter:blur(6px); }
+.orbit-table-area { height:485px; margin-top:-9px; }
+.orbit-seat { z-index:4; }
+.orbit-seat-label { min-width:104px; padding:7px 11px; background:#0b1b19ed; }
+.orbit-seat strong { font-size:14px!important; }
+.orbit-seat-label>span { font-size:7px; }
+.orbit-seat-hand { display:flex; justify-content:center; height:20px; margin-top:5px; }
+.orbit-seat-hand i { width:14px; height:20px; margin-left:-5px; border:1px solid #b69e65; border-radius:2px; background:#1d3931; transform:rotate(calc((var(--card) - 2) * 7deg)); transform-origin:50% 120%; box-shadow:0 2px 5px #0007; }
+.orbit-fate { margin-top:7px; color:#b7c1b2; }
+.orbit-fate>span { display:block; font-size:7px; line-height:1; letter-spacing:.13em; }
+.orbit-fate>div { display:flex; justify-content:center; gap:4px; margin-top:5px; }
+.orbit-fate i { width:5px; height:5px; border:1px solid #8b9f8c88; border-radius:50%; }
+.orbit-fate i.used { border-color:#d6b16e; background:#d6b16e; box-shadow:0 0 7px #d6b16e77; }
+.orbit-fate.is-out { color:#d8977c; }
+.orbit-player-score .orbit-fate { margin:0; }
+.orbit-player-score .orbit-fate>span { font-size:8px; }
+.orbit-table-center { z-index:3; top:245px; }
+.orbit-table-center.is-revealing { top:120px!important; width:330px; }
+.orbit-reveal { position:relative; top:auto!important; left:auto; transform:none; min-width:0; max-width:none; padding:0; }
+.orbit-reveal h2 { font-size:27px; color:#f0ca85; }
+.orbit-reveal-cards { margin:8px 0 4px; }
+.orbit-flip .orbit-card { width:52px; height:74px; }
+.orbit-reveal>p { min-height:16px; color:#efe1c4!important; font-size:11px!important; }
+.orbit-player-zone { max-width:570px; margin-top:-18px; padding:13px 22px 18px; }
+.orbit-controls { gap:14px; margin:0 8px; }
+.orbit-controls button { min-height:52px; }
+.orbit-claim-trail { margin:9px auto 0; max-width:570px; }
+.orbit-game.is-waiting-turn .orbit-player-zone { opacity:.58; filter:saturate(.48) brightness(.78); transform:scale(.985); }
+.orbit-game.is-your-turn .orbit-player-zone { outline:1px solid #e9c47a55; }
+
+@media(max-width:760px) {
+ .orbit-entry-header { min-height:62px; }
+ .orbit-entry { padding:24px 17px 38px; }
+ .orbit-intro h1 { font-size:52px; }
+ .orbit-stakes { margin-top:15px; font-size:16px; }
+ .orbit-cast { margin-bottom:8px; }
+ .orbit-cast strong { font-size:18px; }
+ .orbit-cast span { font-size:7px; }
+ .orbit-setup { padding:20px 16px; }
+ .orbit-quick-rules { gap:13px; margin:19px 0; }
+ .orbit-quick-rules li { font-size:11px; }
+ .orbit-game { padding:8px 8px 20px; }
+ .orbit-game-tools { min-height:38px; }
+ .orbit-game-tools .orbit-volume { display:none; }
+ .orbit-tool,.orbit-leave { min-height:33px; padding:7px 9px; }
+ .orbit-turn-banner { margin-top:1px; }
+ .orbit-table-area { height:330px; margin-top:-3px; }
+ .orbit-table-center { top:196px; width:210px; }
+ .orbit-table-center.is-revealing { top:86px!important; width:245px; }
+ .orbit-seat-label { min-width:76px; padding:5px 7px; }
+ .orbit-seat strong { font-size:11px!important; }
+ .orbit-seat-label>span,.orbit-fate>span { font-size:6px; }
+ .orbit-seat-hand { transform:scale(.85); margin-top:2px; }
+ .orbit-fate { margin-top:3px; }
+ .orbit-player-zone { margin-top:-6px; padding:10px 7px 14px; }
+ .orbit-player-top { margin:5px 2px 10px; }
+ .orbit-controls { margin:0 2px; }
+ .orbit-controls button { min-height:49px; }
+ .orbit-reveal h2 { font-size:22px; }
+ .orbit-flip .orbit-card { width:42px; height:60px; }
+}
+@media(max-width:390px) {
+ .orbit-table-area { height:300px; }
+ .orbit-table-center { top:174px; }
+ .orbit-table-center.is-revealing { top:76px!important; }
+ .orbit-hand .orbit-card { flex-basis:55px; width:55px; height:82px; }
+ .orbit-controls { grid-template-columns:1.2fr 1fr; }
+}
+@media(min-width:761px) and (max-height:850px) {
+ .orbit-game { padding-top:8px; }
+ .orbit-table-area { height:390px; }
+ .orbit-player-zone { margin-top:-10px; }
+ .orbit-hand { min-height:102px; }
+ .orbit-hand .orbit-card { width:65px; height:94px; }
+}

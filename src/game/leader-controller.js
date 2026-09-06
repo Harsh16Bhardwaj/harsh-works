@@ -21,10 +21,7 @@ export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.r
     if (delay === null) return;
     state.due = now() + delay;
     const automatic = state.game.phase !== 'playing' || state.game.players[state.game.turn]?.bot;
-    if (state.game.phase === 'armed') {
-      const loser = state.game.players.find(player => player.id === state.game.reveal.loserId);
-      if (!loser?.bot) return;
-    } else if (!automatic) return;
+    if (!automatic) return;
     timer = scheduleTimer(() => controller.advance(), delay);
   }
 

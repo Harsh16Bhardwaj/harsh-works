@@ -116,7 +116,7 @@ export function act(previous, actorId, action, rng = Math.random) {
       cards: state.last.cards, liar, accused: accused.name, challenger: player.name,
       loser: loser.name, loserId: loser.id, draw: loser.risks + 1,
     };
-    state.log.unshift(`${player.name} called LIAR. ${accused.name} ${liar ? 'lied' : 'told the truth'}. ${loser.name} faces the portal.`);
+    state.log.unshift(`${player.name} called LIAR. ${accused.name} ${liar ? 'lied' : 'told the truth'}. ${loser.name} faces the hammer.`);
     state.phase = 'reveal';
     state.nextStarter = state.players.indexOf(loser);
   } else {
@@ -141,7 +141,7 @@ export function armRisk(previous) {
 }
 
 export function readyRisk(previous) {
-  if (previous.phase !== 'loading') throw new Error('The portal is not ready yet.');
+  if (previous.phase !== 'loading') throw new Error('The hammer is not ready yet.');
   return { ...copy(previous), phase: 'armed', revision: previous.revision + 1 };
 }
 
@@ -151,7 +151,7 @@ export function fireRisk(previous, actorId) {
 }
 
 export function resolveRisk(previous, rng = Math.random) {
-  if (previous.phase !== 'firing') throw new Error('The portal draw has not started.');
+  if (previous.phase !== 'firing') throw new Error('The hammer has not landed yet.');
   const state = copy(previous);
   const player = state.players.find((p) => p.id === state.reveal.loserId);
   // Older saved rooms did not have a fixed losing draw. Pick uniformly from
@@ -166,7 +166,7 @@ export function resolveRisk(previous, rng = Math.random) {
   const survivors = state.players.filter((p) => p.alive);
   state.phase = survivors.length === 1 ? 'finished' : 'resolved';
   if (state.phase === 'finished') { state.winner = survivors[0].id; survivors[0].score += 500; }
-  state.log.unshift(`${eliminated ? 'DEAD' : 'SAFE'}. ${player.name} ${eliminated ? 'was taken by the portal' : 'returns to the table'}.`);
+  state.log.unshift(`${eliminated ? 'DEAD' : 'SAFE'}. ${player.name} ${eliminated ? 'was crushed by the hammer' : 'bounces back'}.`);
   state.revision += 1;
   return state;
 }

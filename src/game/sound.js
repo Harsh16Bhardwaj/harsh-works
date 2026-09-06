@@ -1,11 +1,11 @@
 // Original procedural ambience: no downloaded music or third-party recordings.
 export function createSoundscape() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const master = ctx.createGain(); master.gain.value = .15; master.connect(ctx.destination);
+  const master = ctx.createGain(); master.gain.value = .12; master.connect(ctx.destination);
   const nodes = [];
-  for (const hz of [55, 82.41, 110.3]) {
+  for (const hz of [55, 82.41]) {
     const osc = ctx.createOscillator(); const gain = ctx.createGain();
-    osc.type = 'sine'; osc.frequency.value = hz; gain.gain.value = .065;
+    osc.type = 'sine'; osc.frequency.value = hz; gain.gain.value = .035;
     osc.connect(gain); gain.connect(master); osc.start(); nodes.push(osc);
     const lfo = ctx.createOscillator(); const depth = ctx.createGain();
     lfo.frequency.value = .09 + hz / 2500; depth.gain.value = .035;
@@ -16,7 +16,7 @@ export function createSoundscape() {
   for (let i=0;i<data.length;i++) { brown=(brown+(Math.random()*2-1)*.025)/1.025;data[i]=brown*3; }
   const wind=ctx.createBufferSource();wind.buffer=buffer;wind.loop=true;
   const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=450;
-  const windGain=ctx.createGain();windGain.gain.value=.2;wind.connect(filter);filter.connect(windGain);windGain.connect(master);wind.start();nodes.push(wind);
+  const windGain=ctx.createGain();windGain.gain.value=.045;wind.connect(filter);filter.connect(windGain);windGain.connect(master);wind.start();nodes.push(wind);
   return {
     setVolume(value) { ctx.resume(); master.gain.setTargetAtTime(value,ctx.currentTime,.15); },
     pause() { ctx.suspend(); },
@@ -39,14 +39,14 @@ export function createSoundscape() {
       };
       if(kind==='start') { pulse(now,294,294,.16,.28);pulse(now+.19,392,392,.13,.26);pulse(now+.36,440,440,.13,.27);pulse(now+.55,587,587,.34,.34);noise(now+.56,.18,.08,1900); }
       else if(kind==='deal') { noise(now,.09,.28,1500);noise(now+.1,.08,.22,1050);pulse(now+.03,520,300,.1,.12); }
-      else if(kind==='challenge') { pulse(now,150,62,.32,.35,'sawtooth');pulse(now+.28,120,48,.38,.3,'sawtooth'); }
-      else if(kind==='portal') { pulse(now,110,440,.7,.22,'sine');pulse(now+.18,165,660,.85,.18,'triangle');pulse(now+.38,220,880,.9,.13,'sine');noise(now,.9,.09,760); }
-      else if(kind==='pull') { pulse(now,780,82,1.1,.3,'sawtooth');pulse(now+.16,520,55,1.25,.22,'sine');noise(now,.8,.16,520); }
+      else if(kind==='challenge'||kind==='detective') { pulse(now,196,155,.38,.24,'triangle');pulse(now+.22,233,174,.42,.2,'triangle');pulse(now+.5,147,82,.65,.22,'sine'); }
+      else if(kind==='hammer-rise') { pulse(now,72,145,.9,.2,'sine');pulse(now+.18,96,190,.85,.15,'triangle');noise(now,.65,.055,520); }
+      else if(kind==='impact') { noise(now,.2,.52,260);pulse(now,88,32,.42,.55,'sine');pulse(now+.04,180,44,.28,.28,'sawtooth'); }
       else if(kind==='load') { for(let i=0;i<5;i++)pulse(now+i*.22,900-i*90,430,.08,.16,'square');noise(now+.04,.45,.13,1800); }
       else if(kind==='ready') { noise(now,.1,.3,2200);pulse(now,340,95,.22,.28,'square'); }
       else if(kind==='fire') { pulse(now,72,38,.25,.4,'sine');pulse(now+.38,67,34,.3,.34,'sine'); }
-      else if(kind==='dead') { noise(now,.7,.55,430);pulse(now,220,27,1.1,.62,'sawtooth');pulse(now+.08,920,46,.75,.2,'triangle'); }
-      else if(kind==='safe') { pulse(now,1250,460,.07,.3,'square');pulse(now+.15,900,360,.06,.2,'square'); }
+      else if(kind==='dead') { noise(now,.55,.36,430);pulse(now,170,32,.85,.38,'sawtooth'); }
+      else if(kind==='safe') { pulse(now,190,560,.22,.27,'sine');pulse(now+.2,420,720,.26,.2,'triangle'); }
       else pulse(now,620,220,.11,.16);
     },
     dispose() { nodes.forEach(n=>n.stop());ctx.close(); },

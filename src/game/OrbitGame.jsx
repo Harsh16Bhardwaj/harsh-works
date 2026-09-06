@@ -1,7 +1,7 @@
 'use client';
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, AudioLines, Check, CircleHelp, Copy, Gamepad2, Moon, Sparkles, Users, Volume2, VolumeX, X } from 'lucide-react';
+import { ArrowRight, Check, CircleHelp, Copy, Gamepad2, Link2, LogOut, Users, Volume2, VolumeX, X } from 'lucide-react';
 import { act, armRisk, readyRisk, fireRisk, resolveRisk, botAction, BOT_NAMES, createGame, nextRound, RANK_NAMES, viewFor } from './engine.js';
 import { Character } from './Character.jsx';
 import { phaseDelay } from './timing.js';
@@ -30,8 +30,18 @@ function Seat({ player, active, position }) {
   return <div className={`orbit-seat seat-${position} ${active ? 'active' : ''} ${!player.alive ? 'eliminated' : ''}`}>
     <Character kind={player.character ?? position} active={active} />
     <div className="orbit-seat-label"><strong>{player.name}</strong><span>{!player.alive ? 'OUT' : `${player.count} ${player.count === 1 ? 'CARD' : 'CARDS'}`}</span></div>
-    <div className="orbit-risk" aria-label={player.alive ? `${player.risks} safe draws` : `${player.name} was consumed`}>{player.alive ? (player.risks ? `${player.risks} SAFE ${player.risks === 1 ? 'DRAW' : 'DRAWS'}` : 'NO DRAWS YET') : 'CONSUMED'}</div>
+    <div className="orbit-seat-hand" aria-hidden="true">{Array.from({length:Math.min(5,player.count || 0)},(_,i)=><i key={i} style={{'--card':i}}/>)}</div>
+    <FateMarks risks={player.risks} alive={player.alive}/>
   </div>;
+}
+
+function LastBluffMark() {
+  return <svg className="last-bluff-mark" viewBox="0 0 42 32" aria-hidden="true"><rect x="5" y="8" width="20" height="18" rx="2"/><rect x="17" y="5" width="20" height="18" rx="2"/><circle cx="21" cy="16" r="5"/></svg>;
+}
+
+function FateMarks({ risks = 0, alive = true }) {
+  const safe = Math.max(0, risks - (alive ? 0 : 1));
+  return <div className={`orbit-fate ${alive ? '' : 'is-out'}`} aria-label={alive ? `${safe} escapes` : 'Eliminated'}><span>{alive ? `${safe} ESCAPES` : 'OUT'}</span><div>{Array.from({length:6},(_,i)=><i className={i<safe?'used':''} key={i}/>)}</div></div>;
 }
 
 function Modal({ title, onClose, children }) {
@@ -58,13 +68,11 @@ export default function OrbitGame() {
   const [rules, setRules] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState('');
-  const [storageWarning, setStorageWarning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const [sound, setSound] = useState(true);
   const [volume, setVolume] = useState(25);
   const [copied, setCopied] = useState(false);
-  const [clock, setClock] = useState(0);
   const audio = useRef(null);
   const roomSession = useRef(null);
   const lastClaimCue = useRef('');
@@ -85,7 +93,7 @@ export default function OrbitGame() {
       setName(rememberedName());
       const seat = loadSeat();
       if (seat?.code && seat?.seatToken) setCredentials(seat);
-    } catch { setStorageWarning(true); }
+    } catch {}
     setReady(true);
     const visibility = () => { if (document.hidden) audio.current?.pause(); else audio.current?.resume(); };
     document.addEventListener('visibilitychange', visibility);
@@ -99,11 +107,9 @@ export default function OrbitGame() {
     audio.current?.cue('start');
   }, [game?.id]);
   useEffect(() => {
-    if (game?.phase === 'reveal') audio.current?.cue('challenge');
-    if (game?.phase === 'loading') audio.current?.cue('portal');
-    if (game?.phase === 'armed') audio.current?.cue('ready');
-    if (game?.phase === 'firing') audio.current?.cue('pull');
-    if (game?.phase === 'resolved' || game?.phase === 'finished') audio.current?.cue(game.reveal.eliminated ? 'dead' : 'safe');
+    if (game?.phase === 'reveal') audio.current?.cue('detective');
+    if (game?.phase === 'loading') audio.current?.cue('hammer-rise');
+    if (game?.phase === 'resolved' || game?.phase === 'finished') { audio.current?.cue('impact'); audio.current?.cue(game.reveal.eliminated ? 'dead' : 'safe'); }
   }, [game?.phase, game?.round]);
 
   useEffect(() => {
@@ -116,21 +122,17 @@ export default function OrbitGame() {
   }, [game?.id, game?.round, game?.claims?.length]);
 
   useEffect(() => { setSelected([]); }, [game?.revision, game?.id]);
-
-  useEffect(() => {
-    if (!room?.game || room.game.phase !== 'playing') return;
-    setClock(Date.now());
-    const timer = setInterval(() => setClock(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [room?.game?.phase, room?.game?.revision]);
+  useEffect(() => { if (game?.id) window.scrollTo({ top: 0, behavior: 'instant' }); }, [game?.id]);
+  useEffect(() => { if (game?.phase === 'reveal') window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' }); }, [game?.phase]);
 
   useEffect(() => {
     if (!solo || rules || leaving) return;
     let update, delay;
     if (solo.phase === 'reveal') { update = armRisk; delay = phaseDelay(solo); }
     else if (solo.phase === 'loading') { update = readyRisk; delay = phaseDelay(solo); }
-    else if (solo.phase === 'armed' && solo.players.find(p => p.id === solo.reveal.loserId).bot) { update = s => fireRisk(s, s.reveal.loserId); delay = phaseDelay(solo); }
+    else if (solo.phase === 'armed') { update = s => fireRisk(s, s.reveal.loserId); delay = phaseDelay(solo); }
     else if (solo.phase === 'firing') { update = resolveRisk; delay = phaseDelay(solo); }
+    else if (solo.phase === 'resolved') { update = nextRound; delay = phaseDelay(solo); }
     else if (solo.phase === 'playing' && solo.players[solo.turn].bot) {
       update = s => act(s, s.players[s.turn].id, botAction(viewFor(s, s.players[s.turn].id)));
       delay = phaseDelay(solo);
@@ -192,12 +194,12 @@ export default function OrbitGame() {
   }
 
   async function move(type) {
-    if ((type === 'fire' ? game?.phase !== 'armed' || game.reveal.loserId !== youId : !yourTurn) || lock.current) return;
+    if (!yourTurn || lock.current) return;
     lock.current = true; setBusy(true); setError('');
     try {
       const action = { type, cards: selected };
       if (room) roomSession.current.act(action, game.revision);
-      else setSolo(type === 'fire' ? fireRisk(solo, 'you') : act(solo, 'you', action));
+      else setSolo(act(solo, 'you', action));
       setSelected([]);
     } catch (e) { setError(e.message); }
     finally { lock.current = false; setBusy(false); }
@@ -220,57 +222,39 @@ export default function OrbitGame() {
   const activePlayerId = game?.phase === 'playing' ? game.players[game.turn].id : reveal?.loserId;
   return <main className="orbit-app">
     <div className="orbit-scenery" aria-hidden="true"><div className="orbit-moon" /><div className="orbit-horizon" /></div>
-    <header className="orbit-header">
-      <a className="orbit-home" href="/" aria-label="Back to portfolio"><ArrowLeft size={16} /><span>PORTFOLIO</span></a>
-      <a className="orbit-brand" href="/play"><Sparkles size={22} /><span>LIAR’S <b>ORBIT</b></span></a>
+    {!game && <header className="orbit-header orbit-entry-header">
+      <a className="orbit-home" href="/" aria-label="Back to portfolio"><span>← PORTFOLIO</span></a>
+      <a className="orbit-brand" href="/play"><LastBluffMark/><span>LAST <b>BLUFF</b></span></a>
       <div className="orbit-header-actions"><button className="orbit-icon" onClick={() => { if (!sound) { try { audio.current ??= createSoundscape(); } catch { return; } } setSound(!sound); }} aria-label={sound ? 'Mute sound' : 'Enable sound'} aria-pressed={sound}>{sound ? <Volume2 size={18} /> : <VolumeX size={18} />}</button><input className="orbit-volume" aria-label="Ambient volume" type="range" min="0" max="60" value={volume} onChange={e => setVolume(Number(e.target.value))} /><button className="orbit-help" aria-label="How to play" aria-expanded={rules} onClick={() => setRules(true)}><CircleHelp size={17} /><span>How to play</span></button></div>
-    </header>
+    </header>}
 
     {!game && !room && <section className="orbit-entry">
-        <div className="orbit-intro"><p className="orbit-eyebrow"><span /> A SMALL GAME OF BIG LIES</p><h1>Good company.<br /><em>Terrible liars.</em></h1><p className="orbit-intro-sub">Read the room. Call the lie.</p><p className="orbit-description">Five cards. Six chances. Last player alive wins.</p>
-        <div className="orbit-cast" aria-label="Meet the house players">{BOT_NAMES.map((n,i)=><div key={n}><Character kind={i}/><strong>{n}</strong><span>{["THE FOX","THE RAVEN","THE AUTOMATON"][i]}</span></div>)}</div>
-        <div className="orbit-entry-tags"><span><Moon size={14} /> No download</span><span><Users size={14} /> 1–4 players</span><span><AudioLines size={14} /> All nerve</span></div>
+        <div className="orbit-intro"><p className="orbit-eyebrow"><span /> READ THE TABLE</p><h1>Good company.<br /><em>Terrible liars.</em></h1><p className="orbit-description orbit-stakes">Five cards. Six chances. Last player alive wins.</p>
+        <div className="orbit-cast" aria-label="Meet the house players">{BOT_NAMES.map((n,i)=><div key={n}><Character kind={i}/><strong>{n}</strong><span>{["CAREFUL","FEARLESS","UNREADABLE"][i]}</span></div>)}</div>
       </div>
       <div className="orbit-setup"><div className="orbit-setup-top"><span className="orbit-eyebrow">TAKE A SEAT</span><span className="orbit-open"><i /> TABLE OPEN</span></div>
         <div className="orbit-mode" role="group" aria-label="Game mode"><button disabled={!ready} onClick={() => setMode('solo')} aria-pressed={mode === 'solo'}><Gamepad2 size={17} /> Fly solo</button><button disabled={!ready} onClick={() => setMode('friends')} aria-pressed={mode === 'friends'}><Users size={17} /> With friends</button></div>
-        <h2>{mode === 'solo' ? 'Trust no one.' : 'Bring your best liars.'}</h2><p>{mode === 'solo' ? 'Not even the house bots. Three personalities, absolutely no poker face.' : 'Share this page and a room code. Up to four players; bots fill the spare seats.'}</p>
-        <label className="orbit-label" htmlFor="orbit-name">YOUR TABLE NAME <span>OPTIONAL</span></label><input id="orbit-name" maxLength={18} placeholder="Traveller" value={name} onChange={(e) => { setName(e.target.value); rememberName(e.target.value); }} autoComplete="name" />
-        <ol className="orbit-quick-rules"><li><b>01</b><span><strong>Play 1–3 cards face down.</strong> Say they match the rank shown on the table. You may be lying.</span></li><li><b>02</b><span><strong>The next player chooses.</strong> They play more cards or call the lie. Jokers always count.</span></li><li><b>03</b><span><strong>The loser faces the portal.</strong> One of their six draws is DEAD. Survive five and the sixth is guaranteed DEAD.</span></li></ol>
-        {mode === 'solo' ? <><button className="orbit-primary" disabled={!ready || Boolean(credentials)} onClick={() => startSolo()}>{ready ? 'Deal me in' : 'Opening the table…'}<ArrowRight size={18} /></button></> : <><button className={`orbit-primary ${code ? 'orbit-create-muted' : ''}`} disabled={busy || Boolean(credentials) || Boolean(code)} onClick={() => roomAction('create')}>Create a room<ArrowRight size={18} /></button><div className={`orbit-join ${code ? 'has-code' : ''}`}><input aria-label="Room code" placeholder="ROOM CODE" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/[^a-z2-9]/gi, '').toUpperCase())} /><button disabled={code.length !== 6 || busy || Boolean(credentials)} onClick={() => roomAction('join')}>Join <ArrowRight size={15} /></button></div></>}
+        <div className="orbit-name-field"><label className="orbit-label" htmlFor="orbit-name">YOUR NAME</label><input id="orbit-name" maxLength={18} placeholder="Enter your name" value={name} onChange={(e) => { setName(e.target.value); rememberName(e.target.value); }} autoComplete="name" /></div>
+        <ol className="orbit-quick-rules"><li><b>01</b><span><strong>Play 1–3 cards.</strong> Claim they match the table.</span></li><li><b>02</b><span><strong>Play or call the bluff.</strong> Jokers always count.</span></li><li><b>03</b><span><strong>Lose the call, face the hammer.</strong> Your sixth chance is never safe.</span></li></ol>
+        {mode === 'solo' ? <button className="orbit-primary" disabled={!ready || Boolean(credentials)} onClick={() => startSolo()}>{ready ? 'Take your seat' : 'Opening the table…'}<ArrowRight size={18} /></button> : <><div className={`orbit-join ${code ? 'has-code' : ''}`}><input aria-label="Room code" placeholder="ENTER ROOM CODE" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/[^a-z2-9]/gi, '').toUpperCase())} /><button disabled={code.length !== 6 || busy || Boolean(credentials)} onClick={() => roomAction('join')}>Join <ArrowRight size={15} /></button></div><div className="orbit-or"><span>OR</span></div><button className={`orbit-primary orbit-create ${code ? 'orbit-create-muted' : ''}`} disabled={busy || Boolean(credentials) || Boolean(code)} onClick={() => roomAction('create')}>Create a room<ArrowRight size={18} /></button></>}
         {credentials && <button className="orbit-resume" onClick={leave}>Reconnecting to {credentials.code} · Leave room</button>}
-        <p className="orbit-setup-note">{mode === 'solo' ? 'Ambient sound starts when you join. Headphones recommended.' : 'Friends connect directly to the room creator. Rooms expire after two hours without activity.'}</p>
       </div>
     </section>}
 
     {room && !game && <section className="orbit-lobby"><p className="orbit-eyebrow">PRIVATE TABLE · WITH FRIENDS</p><h1>The company<br />you <em>don’t keep.</em></h1><p>Copy the invite. Your friend opens it and joins with the code already filled in.</p><button className="orbit-room-code" onClick={copyCode} aria-label="Copy room invite">{room.code}{copied ? <Check size={22} /> : <Copy size={22} />}</button><div className="orbit-lobby-seats">{Array.from({ length: 4 }, (_, i) => <div key={i}><span>{room.seats[i]?.name.slice(0, 1) || '✧'}</span><strong>{room.seats[i]?.name || 'Open seat'}</strong><small>{room.seats[i] ? 'READY TO LIE' : 'A BOT CAN FILL IN'}</small></div>)}</div>{room.host ? <button className="orbit-primary" disabled={busy} onClick={() => roomAction('start')}>Start the table <ArrowRight size={18} /></button> : <p className="orbit-wait">Waiting for the host to deal…</p>}<p className="orbit-setup-note">30 seconds per human turn. Bots take about 5 seconds. A bot plays if someone steps away.</p><button className="orbit-resume" onClick={leave}>Leave room</button></section>}
 
     {game && <section className={`orbit-game ${yourTurn ? 'is-your-turn' : ''} ${waitingTurn ? 'is-waiting-turn' : ''}`}>
-      <div className="orbit-game-bar"><div><span className="orbit-live-dot" />{room ? `ROOM ${room.code}` : 'SOLO TABLE'}<span className="orbit-bar-divider">/</span>ROUND {String(game.round).padStart(2, '0')}{room && game.phase === 'playing' && !game.players[game.turn].bot && <span className="orbit-clock">{Math.max(0, Math.ceil((room.due - clock) / 1000))}s</span>}</div><button onClick={() => setLeaving(true)}>Leave table <ArrowRight size={14} /></button></div>
-      <div className={`orbit-turn-banner ${yourTurn?'is-yours':''}`} aria-live="polite"><div className="orbit-rank-badge"><span>TABLE CARDS</span><strong>{RANK_NAMES[game.rank]}</strong><small>Jokers count</small></div><div className="orbit-current-turn"><span className="orbit-turn-pulse" /> <strong>{game.phase==='playing'?(yourTurn?'YOUR TURN':game.players[game.turn].name.toUpperCase()):game.phase==='resolved'||game.phase==='finished'?(reveal?.eliminated?'DEAD':'SAFE'):(reveal?.loser || '').toUpperCase()}</strong><small>{game.phase==='playing'?'NOW PLAYING':game.phase==='reveal'?'CARDS REVEALED':game.phase==='loading'?'PORTAL OPENING':game.phase==='armed'?'FACE THE PORTAL':game.phase==='firing'?'FINAL DRAW':'RESULT'}</small></div></div>
+      <div className="orbit-game-tools"><div><button className="orbit-tool" onClick={() => { if (!sound) { try { audio.current ??= createSoundscape(); } catch { return; } } setSound(!sound); }} aria-label={sound ? 'Mute sound' : 'Enable sound'}>{sound ? <Volume2 size={17}/> : <VolumeX size={17}/>}</button><input className="orbit-volume" aria-label="Ambient volume" type="range" min="0" max="60" value={volume} onChange={e => setVolume(Number(e.target.value))}/>{room && <button className="orbit-tool invite" onClick={copyCode}>{copied?<Check size={16}/>:<Link2 size={16}/>}<span>{copied?'Copied':room.code}</span></button>}<button className="orbit-tool" onClick={()=>setRules(true)} aria-label="How to play"><CircleHelp size={17}/></button></div><button className="orbit-leave" onClick={() => setLeaving(true)}>Leave <LogOut size={15}/></button></div>
+      <div className={`orbit-turn-banner ${yourTurn?'is-yours':''}`} aria-live="polite"><div className="orbit-rank-badge"><span>PLAY</span><strong>{RANK_NAMES[game.rank]}</strong><small>Jokers count</small></div><div className="orbit-current-turn"><span className="orbit-turn-pulse" /> <strong>{game.phase==='playing'?(yourTurn?'YOUR TURN':game.players[game.turn].name.toUpperCase()):game.phase==='resolved'||game.phase==='finished'?(reveal?.eliminated?'DEAD':'SAFE'):(reveal?.loser || '').toUpperCase()}</strong><small>{game.phase==='playing'?'NOW PLAYING':game.phase==='reveal'?'CARDS REVEALED':game.phase==='loading'||game.phase==='armed'?'HAMMER RISING':game.phase==='firing'?'IMPACT':'RESULT'}</small></div></div>
       <div className={`orbit-table-area phase-${game.phase}`}><Suspense fallback={null}><TableScene players={scenePlayers} activeId={activePlayerId} phase={game.phase}/></Suspense>
         <div className="orbit-table"><div className="orbit-table-ring" /><span className="orbit-table-label">FORTUNE FAVOURS THE CONVINCING</span><div className="orbit-table-bottom">EST. AT THE EDGE OF NOWHERE</div></div>
         {opponents.map((player, i) => <Seat key={player.id} player={player} active={activePlayerId === player.id} position={i} />)}
-        <div className="orbit-table-center">
-          <div className="orbit-rank-label">THE TABLE IS</div><h2>{RANK_NAMES[game.rank]}<span> ONLY</span></h2>
-          <div className="orbit-pile" key={`${game.round}-${game.revision}`}>{game.last ? Array.from({ length: game.last.count }, (_, i) => <div key={i} style={{ '--i': i }}><Card back /></div>) : <div className="orbit-empty-pile"><Crest rank={game.rank} /><span>MAKE THE FIRST CLAIM</span></div>}</div>
-          <p className="orbit-claim">{game.last ? <><strong>{game.players[game.last.player].name}</strong> claims {game.last.count} {RANK_NAMES[game.rank]}<span>Play more cards or challenge this claim.</span></> : <>No cards played yet.<span>The first player must play 1–3 cards.</span></>}</p>
+        <div className={`orbit-table-center ${reveal ? 'is-revealing' : ''}`}>
+          {reveal ? game.phase==='reveal' ? <div className="orbit-reveal" key={`reveal-${game.round}`} role="status"><h2>{reveal.liar ? 'LIE' : 'TRUE'}</h2><div className="orbit-reveal-cards">{reveal.cards.map((rank,i)=><div className="orbit-flip" style={{'--i':i}} key={i}><Card rank={rank}/></div>)}</div><p>{reveal.loser} loses the call</p></div> : game.phase==='finished' ? <div className="orbit-reveal orbit-winner"><h2>{game.winner===youId?'YOU WIN':`${game.players.find(p=>p.id===game.winner)?.name.toUpperCase()} WINS`}</h2><button className="orbit-primary" onClick={leave}>Leave table <ArrowRight size={15}/></button></div> : null : <><div className="orbit-rank-label">THE TABLE IS</div><h2>{RANK_NAMES[game.rank]}<span> ONLY</span></h2><div className="orbit-pile" key={`${game.round}-${game.revision}`}>{game.last ? Array.from({ length: game.last.count }, (_, i) => <div key={i} style={{ '--i': i }}><Card back /></div>) : <div className="orbit-empty-pile"><Crest rank={game.rank} /><span>MAKE THE FIRST CLAIM</span></div>}</div><p className="orbit-claim">{game.last ? <><strong>{game.players[game.last.player].name}</strong> · {game.last.count} {RANK_NAMES[game.rank]}</> : 'Your opening play'}</p></>}
         </div>
-        {reveal && <div className={`orbit-reveal risk-${game.phase} ${reveal.loserId === youId ? 'is-self' : ''}`} key={`reveal-${game.round}`} role="status">
-          <p className="orbit-eyebrow">CARDS REVEALED</p>
-          <h2>{reveal.liar ? 'LIE.' : 'TRUE.'}</h2>
-          <p className="orbit-reveal-verdict">{reveal.cards.map(r=>r==='J'?'Joker':RANK_NAMES[r].slice(0,-1)).join(' + ')}</p>
-          <div className="orbit-reveal-cards">{reveal.cards.map((rank,i)=><div className="orbit-flip" style={{'--i':i}} key={i}><Card rank={rank}/></div>)}</div>
-          {game.phase === 'reveal' ? <p className="orbit-risk-caption">{reveal.loser} faces the portal.</p> : <>
-            {game.phase === 'loading' && <p className="orbit-risk-caption">Portal opening…</p>}
-            {game.phase === 'armed' && <>{reveal.loserId===youId ? <button className="orbit-fire" disabled={busy} onClick={()=>move('fire')}>Try your luck <span>↗</span></button> : <p className="orbit-wait">{reveal.loser} tries their luck…</p>}</>}
-            {game.phase === 'firing' && <p className="orbit-risk-caption">Deciding…</p>}
-            {['resolved','finished'].includes(game.phase) && <><div className={`orbit-shot-result ${reveal.eliminated?'danger':''}`}><b>{reveal.eliminated?'DEAD':'SAFE'}</b></div>{game.phase==='finished' ? <><h3>{game.winner===youId?'You take the table.':`${game.players.find(p=>p.id===game.winner)?.name} wins.`}</h3><button className="orbit-primary" onClick={leave}>Back to the lounge <ArrowRight size={17}/></button></> : room ? <p className="orbit-wait">Next hand…</p> : <button className="orbit-primary" onClick={()=>setSolo(nextRound(solo))}>Next hand <ArrowRight size={17}/></button>}</>}
-          </>}
-        </div>}
       </div>
-      <div className="orbit-player-zone"><div className="orbit-player-top"><div><span className={`orbit-turn-dot ${yourTurn ? 'on' : ''}`} /><strong>{you?.name}</strong><span>{!you?.alive ? 'SPECTATING' : yourTurn ? 'YOUR MOVE' : 'YOUR HAND'}</span></div><div className="orbit-player-score"><span className="orbit-personal-risk">SAFE DRAWS</span> {Math.max(0,(you?.risks || 0) - (you?.alive === false ? 1 : 0))}/5</div></div>
+      <div className="orbit-player-zone"><div className="orbit-player-top"><div><span className={`orbit-turn-dot ${yourTurn ? 'on' : ''}`} /><strong>{you?.name}</strong><span>{!you?.alive ? 'SPECTATING' : yourTurn ? 'YOUR MOVE' : 'YOUR HAND'}</span></div><div className="orbit-player-score"><FateMarks risks={you?.risks} alive={you?.alive}/></div></div>
         <div className="orbit-hand">{you?.alive ? you.hand.map((rank, i) => <Card key={`${game.round}-${i}`} rank={rank} index={i} selected={selected.includes(i)} disabled={!yourTurn || busy || forced} onClick={() => { setError(''); setSelected((cards) => cards.includes(i) ? cards.filter((n) => n !== i) : cards.length < 3 ? [...cards, i] : cards); tone(); }} />) : <p className="orbit-spectator">Your luck ran out. Stay to see who gets the last word.</p>}</div>
-        <div className="orbit-turn-message" aria-live="polite">{game.phase !== 'playing' ? 'The cards have spoken.' : !you?.alive ? 'You’re out. The table plays on.' : yourTurn ? forced ? 'Last hand standing. You must call the previous claim.' : selected.length ? `${selected.length} selected. You’re claiming ${RANK_NAMES[game.rank]}, whatever you play.` : 'Your move. Pick 1–3 cards, or call their bluff.' : `${game.players[game.turn].name} is weighing the odds…`}</div>
         <div className="orbit-controls"><button className="orbit-primary" disabled={!yourTurn || !selected.length || busy || forced} onClick={() => move('play')}>Play {selected.length || ''} {selected.length === 1 ? 'card' : 'cards'}<ArrowRight size={17} /></button><button className="orbit-challenge" disabled={!yourTurn || !game.last || busy} onClick={() => move('challenge')}>Call “Liar” <span>↗</span></button></div>
       </div>
       {game.phase === 'playing' && game.claims.length > 0 && <div className="orbit-claim-trail" aria-label="Recent claims">{game.claims.slice(-4).map((claim, i) => <span key={i}>{game.players[claim.player].name} · <b>{claim.count} {RANK_NAMES[game.rank]}</b></span>)}</div>}
@@ -278,8 +262,7 @@ export default function OrbitGame() {
     </section>}
 
     {error && <div className="orbit-error" role="alert">{error}<button onClick={() => setError('')} aria-label="Dismiss message"><X size={16} /></button></div>}
-    <footer className="orbit-footer"><span>NO HONOUR AMONG LIARS.</span><span>{sound?'AMBIENCE ON · ADJUST ABOVE':'AMBIENCE MUTED'}</span><span>{storageWarning?'Reconnection unavailable in this browser':'LAST SURVIVOR TAKES THE TABLE'}</span></footer>
-    {rules && <Modal title="How the game works" onClose={() => setRules(false)}><ol className="orbit-full-rules"><li><strong>Match the table card.</strong> The table shows Aces, Kings, or Queens. Jokers match anything.</li><li><strong>Play 1–3 cards face down.</strong> Claim that every card matches. You may lie.</li><li><strong>The next player acts.</strong> Turns always move in the same direction. Play cards or call the lie.</li><li><strong>The loser faces the portal.</strong> A caught liar loses. If the cards were true, the caller loses.</li><li><strong>Death is fixed somewhere from draw 1 to 6.</strong> The position is random and hidden for each player. Five safe draws always make draw six DEAD.</li></ol><p className="orbit-rules-note">You have 30 seconds per move. Bots act after about 5 seconds. The game continues automatically if someone waits too long.</p><button className="orbit-primary" onClick={() => setRules(false)}>Start playing <ArrowRight size={16} /></button></Modal>}
+    {rules && <Modal title="How to play" onClose={() => setRules(false)}><ol className="orbit-full-rules"><li><strong>Match the table.</strong> Play Aces, Kings, or Queens. Jokers always match.</li><li><strong>Play 1–3 cards face down.</strong> Say they match. You can lie.</li><li><strong>Play or call “Liar.”</strong> Turns always move in the same direction.</li><li><strong>Lose the call, face the hammer.</strong> It either bounces or crushes you.</li><li><strong>Sixth time means dead.</strong> Every player has one hidden losing hit from one to six.</li></ol><p className="orbit-rules-note">Bots take about five seconds. If a player waits too long, a bot keeps the table moving.</p><button className="orbit-primary" onClick={() => setRules(false)}>Take a seat <ArrowRight size={16} /></button></Modal>}
     {leaving && <Modal title="Leaving so soon?" onClose={() => setLeaving(false)}><p className="orbit-rules-note">{room ? 'A bot takes your seat so your friends can keep playing.' : 'Leaving ends this solo match. Start a fresh table whenever you like.'}</p><button className="orbit-primary" onClick={leave}>Leave table <ArrowRight size={16} /></button><button className="orbit-resume" onClick={() => setLeaving(false)}>Stay at the table</button></Modal>}
   </main>;
 }
