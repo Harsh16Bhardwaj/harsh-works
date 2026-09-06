@@ -1,4 +1,4 @@
-import { act, armRisk, readyRisk, fireRisk, resolveRisk, botAction, BOT_NAMES, createGame, nextRound, viewFor } from './engine.js';
+import { act, armRisk, readyRisk, fireRisk, resolveRisk, botAction, BOT_NAMES, createGame, nextRound, upgradeGame, viewFor } from './engine.js';
 import { phaseDelay } from './timing.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -83,7 +83,7 @@ export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.r
     },
     restore(snapshot) {
       if (!snapshot || snapshot.roomId !== roomId || snapshot.leaderId !== leader.id || !snapshot.game) throw new Error('Invalid leader snapshot.');
-      state = { ...copy(snapshot), epoch: Math.max(epoch, snapshot.epoch + 1) };
+      state = { ...copy(snapshot), game: upgradeGame(snapshot.game, rng), epoch: Math.max(epoch, snapshot.epoch + 1) };
       armTimer(); notify();
       return controller.snapshot();
     },

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { act, armRisk, readyRisk, fireRisk, resolveRisk, bluffEstimate, botAction, createGame, mustChallenge, nextRound, validSave, viewFor } from './engine.js';
+import { act, armRisk, readyRisk, fireRisk, resolveRisk, bluffEstimate, botAction, createGame, mustChallenge, nextRound, upgradeGame, validSave, viewFor } from './engine.js';
 import { createRoomHandler, roomRequest } from './rooms.js';
 import { memoryRoomStore } from './room-store.js';
 import { phaseDelay, TIMING } from './timing.js';
@@ -40,12 +40,13 @@ test('a joker counts as the table rank; a wrong accusation penalizes the challen
   assert.equal(game.players[0].score, 120); assert.equal(game.phase, 'reveal');
 });
 
-test('one wrong rank exposes a lie and only the challenge loser takes a shot', () => {
+test('one wrong rank exposes a lie and only the challenge loser faces the draw', () => {
   let game = createGame(seats, seed(9));
   game.rank = 'A'; game.players[0].hand = ['A', 'Q'];
   game = act(game, 'you', { type: 'play', cards: [0, 1] });
   game = act(game, 'one', { type: 'challenge' });
   assert.equal(game.reveal.liar, true); assert.equal(game.players[0].alive, true);
+  game.players[0].losingDraw = 1;
   game = resolveRisk(fireRisk(readyRisk(armRisk(game)), 'you'), () => 0);
   assert.equal(game.players[0].alive, false);
   assert.equal(game.players[1].score, 100); assert.equal(game.players[1].risks, 0);
@@ -123,23 +124,26 @@ test('only the losing player can fire, and the result is secret until resolution
   game=act(game,'you',{type:'play',cards:[0]});game=act(game,'one',{type:'challenge'});
   assert.throws(()=>fireRisk(game,'you'));
   game=readyRisk(armRisk(game));assert.throws(()=>fireRisk(game,'one'));
+  game.players[0].losingDraw=1;
   game=fireRisk(game,'you');assert.equal(viewFor(game,'one').reveal.eliminated,undefined);
   assert.equal(game.players[0].alive,true);assert.throws(()=>fireRisk(game,'you'));
   game=resolveRisk(game,()=>0);assert.equal(game.reveal.eliminated,true);
   assert.throws(()=>resolveRisk(game));
 });
 
-test('every shot uses a fresh independent one-in-six roll', () => {
+test('each player has one hidden losing draw and the sixth can never be safe', () => {
   let game = createGame(seats, seed(12));
-  game.rank = 'A'; game.players[0].hand = ['Q'];
-  game = act(game, 'you', { type: 'play', cards: [0] });
-  game = act(game, 'one', { type: 'challenge' });
-  const fired = fireRisk(readyRisk(armRisk(game)), 'you');
-  assert.equal(resolveRisk(fired, () => 1 / 6 - Number.EPSILON).reveal.eliminated, true);
-  assert.equal(resolveRisk(fired, () => 1 / 6).reveal.eliminated, false);
-  let bangs = 0;
-  for (let i = 0; i < 600; i++) bangs += Number(resolveRisk(fired, () => (i + 0.5) / 600).reveal.eliminated);
-  assert.equal(bangs, 100);
+  game.players[0].losingDraw = 6;
+  for (let draw = 1; draw <= 6; draw++) {
+    game.phase = 'firing'; game.reveal = { loserId: 'you' };
+    game = resolveRisk(game);
+    assert.equal(game.players[0].alive, draw < 6, `draw ${draw}`);
+  }
+  const hidden = viewFor(createGame(seats, seed(4)), 'one');
+  assert.ok(hidden.players.every(player => !('losingDraw' in player)));
+  const legacy = createGame(seats, seed(8));
+  delete legacy.players[0].losingDraw; legacy.players[0].risks = 6;
+  assert.equal(upgradeGame(legacy, () => .9).players[0].alive, false);
 });
 
 test('bot suspicion uses cumulative claims and revealed opponent history', () => {
@@ -185,7 +189,7 @@ test('bots wait five seconds; late and simultaneous polls advance only one turn'
   assert.ok(polls[0].due > Date.now(), 'Late reconnect must not fast-forward the whole table');
 });
 
-test('loading blocks early trigger and each suspense stage has its own deadline', async t => {
+test('loading blocks an early draw and each suspense stage has its own deadline', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: 100000 });
   const request = createRoomHandler(memoryRoomStore());
   const host = await request({ type: 'create' }), guest = await request({ type: 'join', code: host.code });

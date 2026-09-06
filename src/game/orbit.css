@@ -431,44 +431,25 @@
 .orbit-reveal>.orbit-eyebrow { justify-content:center; margin-bottom:2px; }
 .orbit-reveal>.orbit-eyebrow::before { display:none; }
 
-.orbit-shot-cinematic { height:154px; display:grid; place-items:center; position:relative; margin:-3px auto 2px; }
-.orbit-shot-cinematic>strong { position:absolute; bottom:1px; color:#ead3a7; font-size:10px; letter-spacing:.13em; text-transform:uppercase; }
-.orbit-shot-figure { position:relative; width:150px; height:142px; transform-origin:50% 85%; }
-.orbit-shot-figure>.orbit-character { width:116px; height:135px; margin:0 auto; overflow:visible; }
-.orbit-shot-arm { position:absolute; z-index:2; width:54px; height:15px; right:26px; top:93px; border-radius:99px; background:#283d39; border:1px solid #af966d; transform-origin:90% 50%; transform:rotate(-12deg); transition:transform .8s cubic-bezier(.2,.8,.2,1),top .8s ease,right .8s ease; }
-.orbit-shot-gun { position:absolute; z-index:3; width:53px; height:13px; right:4px; top:91px; border-radius:2px 6px 4px 2px; background:linear-gradient(#9ba49a,#243531 70%); border:1px solid #d0bc8e; transform-origin:85% 60%; transform:translateY(40px) rotate(15deg); opacity:0; transition:transform 1s cubic-bezier(.15,.8,.2,1),opacity .25s; filter:drop-shadow(0 5px 5px #0009); }
-.orbit-shot-gun i { position:absolute; width:16px; height:16px; border-radius:50%; right:6px; top:-3px; background:#344541; border:2px solid #ae9c76; }
-.orbit-shot-gun b { position:absolute; width:11px; height:27px; right:3px; top:10px; background:#68452f; border:1px solid #c09666; border-radius:1px 1px 5px 3px; transform:rotate(-17deg); }
-.orbit-shot-gun span { position:absolute; width:8px; height:5px; left:-7px; top:3px; background:#808d86; }
-.shot-loading .orbit-shot-gun { opacity:1; transform:translateY(0) rotate(-21deg); }
-.shot-armed .orbit-shot-gun,.shot-firing .orbit-shot-gun,.shot-resolved .orbit-shot-gun,.shot-finished .orbit-shot-gun { opacity:1; transform:translate(-34px,-55px) rotate(-3deg); }
-.shot-loading .orbit-shot-arm { transform:translate(-8px,-17px) rotate(-62deg); }
-.shot-armed .orbit-shot-arm,.shot-firing .orbit-shot-arm,.shot-resolved .orbit-shot-arm,.shot-finished .orbit-shot-arm { top:63px; right:49px; transform:rotate(-87deg); }
-.shot-firing .orbit-shot-gun { animation:orbit-character-shot 1.6s ease-in-out both; }
-.shot-firing .orbit-shot-figure { animation:orbit-shot-brace 1.6s ease-in-out both; }
-.orbit-muzzle-flash { position:absolute; z-index:4; width:34px; height:34px; left:44px; top:28px; opacity:0; background:#ffd986; clip-path:polygon(50% 0,61% 33%,91% 8%,76% 42%,100% 54%,68% 61%,86% 91%,57% 73%,45% 100%,39% 68%,5% 83%,27% 55%,0 37%,35% 38%); }
-.shot-firing .orbit-muzzle-flash { animation:orbit-flash-on-head .32s 1.12s linear both; }
-.orbit-blood-spray { position:absolute; z-index:5; left:50px; top:37px; width:45px; height:45px; opacity:0; }
-.orbit-blood-spray i { --angle:calc(var(--drop) * 40deg); position:absolute; width:5px; height:5px; left:18px; top:18px; border-radius:50% 35%; background:#8d211f; transform:rotate(var(--angle)) translateX(28px); }
-.orbit-blood-spray i:nth-child(3n) { width:8px; height:4px; transform:rotate(var(--angle)) translateX(39px); }
-.orbit-blood-spray i:nth-child(2n) { width:4px; height:7px; transform:rotate(var(--angle)) translateX(33px); }
-.orbit-blood-pool { position:absolute; z-index:-1; width:115px; height:20px; left:17px; bottom:5px; border-radius:50%; background:radial-gradient(ellipse,#6d1717 0 35%,#401212c9 58%,transparent 72%); opacity:0; transform:scale(.2); }
-.shot-resolved.is-dead .orbit-shot-figure,.shot-finished.is-dead .orbit-shot-figure { animation:orbit-character-fall .8s ease-in both; }
-.shot-resolved.is-dead .orbit-blood-spray,.shot-finished.is-dead .orbit-blood-spray { animation:orbit-blood-out .7s ease-out both; }
-.shot-resolved.is-dead .orbit-blood-pool,.shot-finished.is-dead .orbit-blood-pool { opacity:.9; transform:scale(1); transition:transform .8s ease-out,opacity .2s; }
-.shot-resolved.is-safe .orbit-shot-gun,.shot-finished.is-safe .orbit-shot-gun { transform:translate(-5px,4px) rotate(16deg); }
-.orbit-seat.eliminated .orbit-seat-label { position:relative; border-color:#8b2b286b; background:#251715e8; }
-.orbit-seat.eliminated .orbit-seat-label::after { content:''; position:absolute; width:94px; height:17px; z-index:-1; bottom:-8px; left:50%; transform:translateX(-50%); border-radius:50%; background:radial-gradient(ellipse,#681b1bc9,transparent 72%); }
-@keyframes orbit-character-shot { 0%,68% { transform:translate(-34px,-55px) rotate(-3deg); } 72% { transform:translate(-20px,-55px) rotate(10deg); } 82%,100% { transform:translate(-31px,-53px) rotate(1deg); } }
-@keyframes orbit-shot-brace { 0%,68% { transform:translateX(0); } 72% { transform:translateX(7px) rotate(2deg); } 82%,100% { transform:translateX(0); } }
-@keyframes orbit-flash-on-head { 0%,45% { opacity:1; transform:scale(.4) rotate(0); } 100% { opacity:0; transform:scale(1.4) rotate(30deg); } }
-@keyframes orbit-blood-out { 0% { opacity:1; transform:scale(.25); } 75% { opacity:1; } 100% { opacity:0; transform:scale(1.35); } }
-@keyframes orbit-character-fall { to { transform:translate(18px,18px) rotate(17deg); filter:brightness(.48) saturate(.45); } }
-
+.orbit-table-area:has(.orbit-reveal)::after { display:none!important; }
+.orbit-reveal { top:6px; width:auto; min-width:260px; max-width:430px; padding:4px 14px 8px; border:0; border-radius:0; background:transparent; box-shadow:none; pointer-events:none; text-shadow:0 2px 8px #04110f; }
+.orbit-reveal.risk-reveal { top:6px; padding:4px 14px 8px; }
+.orbit-reveal>.orbit-eyebrow { margin:0; font-size:5px; opacity:.75; }
+.orbit-reveal h2 { margin:0; font-size:22px; line-height:1; }
+.orbit-reveal-verdict { margin:2px 0!important; font-size:9px!important; }
+.orbit-reveal-cards { gap:6px; margin:5px 0 2px; }
+.orbit-flip .orbit-card { width:42px; height:59px; box-shadow:0 4px 12px #0008; }
+.orbit-reveal .orbit-risk-caption,.orbit-reveal .orbit-wait { margin:4px 0 0; font-size:9px!important; }
+.orbit-reveal .orbit-fire,.orbit-reveal .orbit-primary { width:170px; min-height:34px; margin:5px auto 0; padding:7px 14px; pointer-events:auto; font-size:10px!important; }
+.orbit-reveal .orbit-shot-result { padding:2px 0 0; }
+.orbit-reveal .orbit-shot-result b { display:none; }
+.orbit-reveal h3 { margin:2px 0 4px; font-size:18px; }
+.orbit-reveal .orbit-primary { width:132px; min-height:30px; }
+.orbit-seat.eliminated .orbit-seat-label { position:relative; border-color:#78dcd16b; background:#10182be8; box-shadow:0 0 18px #4e87c433; }
 @media(max-width:760px) {
  .orbit-game.is-your-turn .orbit-player-zone { padding:7px 4px 3px; }
- .orbit-shot-cinematic { height:136px; }
- .orbit-shot-figure { transform:scale(.88); }
- .orbit-reveal-cards { margin:7px 0; }
- .orbit-reveal-verdict { font-size:11px!important; }
+ .orbit-reveal { position:absolute; z-index:4; top:2px!important; left:50%; transform:translateX(-50%); width:auto; min-width:230px; max-height:none; overflow:visible; padding:3px 8px 5px; background:transparent; }
+ .orbit-reveal.risk-reveal { top:2px!important; }
+ .orbit-flip .orbit-card { width:37px; height:52px; }
+ .orbit-reveal h2 { font-size:19px; }
 }

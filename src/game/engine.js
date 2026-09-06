@@ -34,11 +34,29 @@ export function createGame(seats, rng = Math.random, id = String(Date.now())) {
     reveal: null, winner: null, log: [], revision: 0,
     players: seats.map((seat, i) => ({
       id: seat.id, name: seat.name, bot: Boolean(seat.bot), style: i === 0 ? 0 : (i - 1) % 3, character: (i + 3) % 4,
-      alive: true, hand: [], played: [], risks: 0, score: 0, caught: 0, honest: 0,
+      alive: true, hand: [], played: [], risks: 0, losingDraw: 1 + Math.floor(rng() * 6), score: 0, caught: 0, honest: 0,
     })),
   };
   if (seats.length < 2 || seats.length > 4) throw new Error('A table needs 2–4 players.');
   deal(state, 0, rng);
+  return state;
+}
+
+export function upgradeGame(previous, rng = Math.random) {
+  const state = copy(previous);
+  state.players.forEach((player) => {
+    if (!Number.isInteger(player.losingDraw) || player.losingDraw < 1 || player.losingDraw > 6) {
+      const remaining = Math.max(1, 6 - player.risks);
+      player.losingDraw = Math.min(6, player.risks + 1 + Math.floor(rng() * remaining));
+    }
+    if (player.risks >= player.losingDraw || player.risks >= 6) player.alive = false;
+  });
+  const survivors = state.players.filter((player) => player.alive);
+  if (survivors.length === 1) { state.phase = 'finished'; state.winner = survivors[0].id; }
+  else if (state.phase === 'playing' && !state.players[state.turn]?.alive) {
+    const next = state.players.findIndex((player) => player.alive && player.hand.length);
+    state.turn = next >= 0 ? next : state.players.findIndex((player) => player.alive);
+  }
   return state;
 }
 
@@ -96,9 +114,9 @@ export function act(previous, actorId, action, rng = Math.random) {
     accused[liar ? 'caught' : 'honest'] += 1;
     state.reveal = {
       cards: state.last.cards, liar, accused: accused.name, challenger: player.name,
-      loser: loser.name, loserId: loser.id, shot: loser.risks + 1,
+      loser: loser.name, loserId: loser.id, draw: loser.risks + 1,
     };
-    state.log.unshift(`${player.name} called LIAR. ${accused.name} ${liar ? 'lied' : 'told the truth'}. ${loser.name} must pull the trigger.`);
+    state.log.unshift(`${player.name} called LIAR. ${accused.name} ${liar ? 'lied' : 'told the truth'}. ${loser.name} faces the portal.`);
     state.phase = 'reveal';
     state.nextStarter = state.players.indexOf(loser);
   } else {
@@ -123,27 +141,32 @@ export function armRisk(previous) {
 }
 
 export function readyRisk(previous) {
-  if (previous.phase !== 'loading') throw new Error('The gun is not ready yet.');
+  if (previous.phase !== 'loading') throw new Error('The portal is not ready yet.');
   return { ...copy(previous), phase: 'armed', revision: previous.revision + 1 };
 }
 
 export function fireRisk(previous, actorId) {
-  if (previous.phase !== 'armed' || previous.reveal.loserId !== actorId) throw new Error('Only the player who lost the challenge can pull the trigger.');
+  if (previous.phase !== 'armed' || previous.reveal.loserId !== actorId) throw new Error('Only the player who lost the challenge can try their luck.');
   return { ...copy(previous), phase: 'firing', revision: previous.revision + 1 };
 }
 
 export function resolveRisk(previous, rng = Math.random) {
-  if (previous.phase !== 'firing') throw new Error('The trigger has not been pulled.');
+  if (previous.phase !== 'firing') throw new Error('The portal draw has not started.');
   const state = copy(previous);
   const player = state.players.find((p) => p.id === state.reveal.loserId);
-  player.risks += 1;
-  const eliminated = rng() < 1 / 6;
+  // Older saved rooms did not have a fixed losing draw. Pick uniformly from
+  // the remaining draws so they also end no later than draw six.
+  if (!Number.isInteger(player.losingDraw) || player.losingDraw <= player.risks || player.losingDraw > 6) {
+    player.losingDraw = Math.min(6, player.risks + 1 + Math.floor(rng() * Math.max(1, 6 - player.risks)));
+  }
+  player.risks = Math.min(6, player.risks + 1);
+  const eliminated = player.risks >= player.losingDraw || player.risks >= 6;
   if (eliminated) player.alive = false;
   state.reveal.eliminated = eliminated;
   const survivors = state.players.filter((p) => p.alive);
   state.phase = survivors.length === 1 ? 'finished' : 'resolved';
   if (state.phase === 'finished') { state.winner = survivors[0].id; survivors[0].score += 500; }
-  state.log.unshift(`${eliminated ? 'DEAD' : 'SAFE'}. ${player.name} ${eliminated ? 'is out of the game' : 'survives the shot'}.`);
+  state.log.unshift(`${eliminated ? 'DEAD' : 'SAFE'}. ${player.name} ${eliminated ? 'was taken by the portal' : 'returns to the table'}.`);
   state.revision += 1;
   return state;
 }
@@ -152,7 +175,7 @@ export function resolveRisk(previous, rng = Math.random) {
 export function viewFor(state, id) {
   return {
     ...state,
-    players: state.players.map(({ hand, played, ...p }) => ({
+    players: state.players.map(({ hand, played, losingDraw, ...p }) => ({
       ...p, count: hand.length, ...(p.id === id ? { hand: [...hand], played: [...played] } : {}),
     })),
     last: state.last ? { player: state.last.player, count: state.last.count } : null,
@@ -202,7 +225,8 @@ export function validSave(state) {
     Array.isArray(state.players) && state.players.length === 4 && state.players[0].id === 'you' &&
     Array.isArray(state.log) && state.log.every((line) => typeof line === 'string') &&
     state.players.every((p) => typeof p.id === 'string' && typeof p.name === 'string' &&
-      Number.isFinite(p.score) && p.score >= 0 && Number.isInteger(p.risks) && p.risks >= 0 && typeof p.alive === 'boolean' &&
+      Number.isFinite(p.score) && p.score >= 0 && Number.isInteger(p.risks) && p.risks >= 0 && p.risks <= 6 &&
+      (p.losingDraw === undefined || (Number.isInteger(p.losingDraw) && p.losingDraw >= 1 && p.losingDraw <= 6)) && typeof p.alive === 'boolean' &&
       Array.isArray(p.hand) && p.hand.length <= 5 && p.hand.every((rank) => [...RANKS, 'J'].includes(rank))) &&
     (!state.last || (Number.isInteger(state.last.player) && state.last.player >= 0 && state.last.player < 4 &&
       Array.isArray(state.last.cards) && state.last.cards.length >= 1 && state.last.cards.length <= 3 &&

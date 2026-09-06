@@ -26,18 +26,3 @@ export function Revolver({ phase, eliminated }) {
     <g className="gun-hands"><path className="gun-hand-support" d="M130 125c18-20 36-28 55-22l21 12-12 24-31-2-25 15Z" fill="#b98564" stroke="#e2b48d" strokeWidth="2" /><path className="gun-hand-grip" d="M218 116c12-19 25-26 39-20l25 17-11 30-34-1-19-13Z" fill="#b98564" stroke="#e2b48d" strokeWidth="2" /><path d="m139 129 28 4m59-13 32 12" stroke="#6e4b3c" strokeWidth="3" strokeLinecap="round" /></g>
   </svg><span className="orbit-gun-shadow" /></div>;
 }
-
-export function ShotCinematic({ player, phase, eliminated }) {
-  const kind = player?.character ?? 3;
-  return <div className={`orbit-shot-cinematic shot-${phase} ${eliminated ? 'is-dead' : 'is-safe'}`} aria-label={`${player?.name || 'Player'} takes the shot`}>
-    <div className="orbit-shot-figure">
-      <Character kind={kind} active={!eliminated} />
-      <div className="orbit-shot-arm" aria-hidden="true" />
-      <div className="orbit-shot-gun" aria-hidden="true"><i /><b /><span /></div>
-      <div className="orbit-muzzle-flash" aria-hidden="true" />
-      <div className="orbit-blood-spray" aria-hidden="true">{Array.from({length:9},(_,i)=><i key={i} style={{'--drop':i}} />)}</div>
-      <div className="orbit-blood-pool" aria-hidden="true" />
-    </div>
-    <strong>{player?.name}</strong>
-  </div>;
-}

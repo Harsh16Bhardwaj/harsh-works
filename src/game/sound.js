@@ -40,10 +40,12 @@ export function createSoundscape() {
       if(kind==='start') { pulse(now,294,294,.16,.28);pulse(now+.19,392,392,.13,.26);pulse(now+.36,440,440,.13,.27);pulse(now+.55,587,587,.34,.34);noise(now+.56,.18,.08,1900); }
       else if(kind==='deal') { noise(now,.09,.28,1500);noise(now+.1,.08,.22,1050);pulse(now+.03,520,300,.1,.12); }
       else if(kind==='challenge') { pulse(now,150,62,.32,.35,'sawtooth');pulse(now+.28,120,48,.38,.3,'sawtooth'); }
+      else if(kind==='portal') { pulse(now,110,440,.7,.22,'sine');pulse(now+.18,165,660,.85,.18,'triangle');pulse(now+.38,220,880,.9,.13,'sine');noise(now,.9,.09,760); }
+      else if(kind==='pull') { pulse(now,780,82,1.1,.3,'sawtooth');pulse(now+.16,520,55,1.25,.22,'sine');noise(now,.8,.16,520); }
       else if(kind==='load') { for(let i=0;i<5;i++)pulse(now+i*.22,900-i*90,430,.08,.16,'square');noise(now+.04,.45,.13,1800); }
       else if(kind==='ready') { noise(now,.1,.3,2200);pulse(now,340,95,.22,.28,'square'); }
       else if(kind==='fire') { pulse(now,72,38,.25,.4,'sine');pulse(now+.38,67,34,.3,.34,'sine'); }
-      else if(kind==='dead') { noise(now,.42,.85,680);pulse(now,110,27,.7,.7,'sawtooth');pulse(now+.05,1600,90,.36,.25,'square'); }
+      else if(kind==='dead') { noise(now,.7,.55,430);pulse(now,220,27,1.1,.62,'sawtooth');pulse(now+.08,920,46,.75,.2,'triangle'); }
       else if(kind==='safe') { pulse(now,1250,460,.07,.3,'square');pulse(now+.15,900,360,.06,.2,'square'); }
       else pulse(now,620,220,.11,.16);
     },

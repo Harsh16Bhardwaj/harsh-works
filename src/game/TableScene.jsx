@@ -23,11 +23,11 @@ export default function TableScene({players,activeId,phase}) {
     const edge=mesh(new T.CylinderGeometry(3.09,3.09,.045,64),gold,table,0,.46,0);edge.scale.z=.57;
     const top=mesh(new T.CylinderGeometry(2.99,2.99,.045,64),felt,table,0,.49,0);top.scale.z=.56;
     for(const x of [-2,2]) mesh(new T.CylinderGeometry(.1,.16,1.1,8),dark,table,x,-.2,0);
-    const positions=[[-.05,0,-1.8],[-2.8,0,-.1],[2.8,0,-.1]];
+    const positions=[[-.05,0,-1.8],[-2.8,0,-.1],[2.8,0,-.1],[0,0,1.72]];
     const figures=[];
-    for(let i=0;i<3;i++){
+    for(let i=0;i<4;i++){
       const kind=state.current.players[i]?.character ?? i;
-      const g=new T.Group();g.position.set(...positions[i]);g.scale.setScalar(1.2);g.rotation.y=i===1?.55:i===2?-.55:0;scene.add(g);
+      const g=new T.Group();g.position.set(...positions[i]);g.scale.setScalar(1.2);g.rotation.y=i===1?.55:i===2?-.55:i===3?Math.PI:0;g.visible=i<3;scene.add(g);
       const skin=material([0xb57443,0x435e70,0x819786,0x856d80][kind]);const coat=material([0x263a36,0x2c3041,0x233c35,0x332e40][kind]);const cream=material(0xe0c293);
       mesh(new T.CylinderGeometry(.29,.48,.72,7),coat,g,0,.72,0);
       const head=mesh(kind===2?new T.BoxGeometry(.5,.5,.4):new T.IcosahedronGeometry(.34,0),skin,g,0,1.3,0);
@@ -38,13 +38,11 @@ export default function TableScene({players,activeId,phase}) {
       const arms=[];
       for(const x of [-.36,.36]){const arm=mesh(new T.CylinderGeometry(.1,.12,.55,6),coat,g,x,.69,.23);arm.rotation.x=-.7;const hand=mesh(new T.IcosahedronGeometry(.12,0),skin,g,x,.49,.43);arms.push({arm,hand,side:Math.sign(x)});}
       const halo=mesh(new T.TorusGeometry(.45,.016,5,36),gold,g,0,1.29,-.2);
-      const weapon=new T.Group();weapon.visible=false;g.add(weapon);weapon.position.set(0,.54,.58);
-      mesh(new T.BoxGeometry(.42,.09,.1),dark,weapon,-.08,0,0);mesh(new T.CylinderGeometry(.12,.12,.13,12),gold,weapon,.13,0,0).rotation.x=Math.PI/2;
-      const grip=mesh(new T.BoxGeometry(.1,.27,.1),wood,weapon,.18,-.14,0);grip.rotation.z=-.25;
-      const blood=new T.Group();blood.visible=false;blood.position.set(positions[i][0],.08,positions[i][2]);scene.add(blood);
-      const red=new T.MeshBasicMaterial({color:0x651d1b,transparent:true,opacity:.82});
-      [[0,0,.38],[-.28,.05,.21],[.31,-.04,.17]].forEach(([x,z,size])=>{const stain=mesh(new T.SphereGeometry(size,10,5),red,blood,x,0,z);stain.scale.y=.07;});
-      figures.push({g,head,halo,arms,weapon,blood,baseY:g.position.y,baseZ:g.position.z});
+      const portal=new T.Group();portal.visible=false;portal.position.set(positions[i][0],2.35,positions[i][2]);scene.add(portal);
+      const portalMat=new T.MeshBasicMaterial({color:0x75eadc,transparent:true,opacity:.58});
+      const portalRing=mesh(new T.TorusGeometry(.5,.028,7,36),portalMat,portal);portalRing.rotation.x=Math.PI/2;
+      const portalCore=mesh(new T.CircleGeometry(.43,28),new T.MeshBasicMaterial({color:0x17103d,transparent:true,opacity:.38}),portal);portalCore.rotation.x=Math.PI/2;
+      figures.push({g,head,halo,arms,portal,portalRing,baseY:g.position.y,baseZ:g.position.z});
     }
     // Candle-like table lamps add depth without shadow maps or postprocessing.
     for(const x of [-1.8,1.8]){mesh(new T.CylinderGeometry(.1,.14,.3,8),gold,table,x,.68,-.7);mesh(new T.SphereGeometry(.055,8,6),new T.MeshBasicMaterial({color:0xffd499}),table,x,.87,-.7);}
@@ -63,17 +61,20 @@ export default function TableScene({players,activeId,phase}) {
       const nextSignature=state.current.players.map(p=>`${p.id}:${p.alive}`).join(',')+state.current.activeId+state.current.phase+el.clientWidth+el.clientHeight;
       if(media.matches&&signature===nextSignature)return;signature=nextSignature;
       if(lastPhase!==state.current.phase){lastPhase=state.current.phase;phaseAt=time;}
-      const shotPhase=['loading','armed','firing','resolved','finished'].includes(state.current.phase);
-      figures.forEach((f,i)=>{const p=state.current.players[i];const active=p?.id===state.current.activeId;const holding=active&&shotPhase&&p?.alive!==false;
-        f.halo.visible=active&&p?.alive!==false;f.halo.scale.setScalar(active&&!media.matches?1.15:1);
-        f.blood.visible=p?.alive===false;
-        f.g.rotation.x=p?.alive===false?-.5:holding?-.1:0;f.g.scale.setScalar(p?.alive===false?1.05:active&&!media.matches?1.3:1.2);
-        f.g.position.y=f.baseY+(p?.alive===false?-.3:holding ? .08 : media.matches?0:Math.sin(time*.0012+i)*.016);f.g.position.z=f.baseZ+(holding ? .24 : 0);
+      const portalPhase=['loading','armed','firing','resolved','finished'].includes(state.current.phase);
+      figures.forEach((f,i)=>{const p=state.current.players[i];const active=p?.id===state.current.activeId;const targeted=active&&portalPhase;
+        const consumed=p?.alive===false;const taking=consumed&&targeted;const consumeProgress=taking?Math.min(1,(time-phaseAt)/1300):0;
+        const opening=state.current.phase==='loading'?Math.min(1,(time-phaseAt)/1500):1;
+        const closing=state.current.phase==='resolved'&&!consumed?Math.max(0,1-(time-phaseAt)/850):1;
+        const portalScale=Math.max(.01,opening*closing);
+        f.portal.visible=targeted&&portalScale>.02;f.portal.scale.setScalar(portalScale);f.portal.rotation.y=media.matches?0:time*.0015;f.portalRing.rotation.z=media.matches?0:time*.0025;
+        f.halo.visible=active&&!consumed;f.halo.scale.setScalar(active&&!media.matches?1.15:1);
+        f.g.visible=i===3 ? targeted : !consumed||taking;
+        f.g.rotation.x=0;f.g.rotation.z=taking?consumeProgress*.2:0;
+        f.g.scale.setScalar(taking?Math.max(.08,1.2*(1-consumeProgress)):active&&!media.matches?1.3:1.2);
+        f.g.position.y=f.baseY+(taking?consumeProgress*2:targeted&&!media.matches?Math.sin(time*.004)*.06:media.matches?0:Math.sin(time*.0012+i)*.016);f.g.position.z=f.baseZ;
         f.head.rotation.z=media.matches?0:active?Math.sin(time*.003)*.07:Math.sin(time*.0008+i)*.035;
-        const lift=state.current.phase==='loading'?Math.min(1,(time-phaseAt)/1700):holding?1:0;
-        const recoil=state.current.phase==='firing'&&time-phaseAt>1650?.12:0;
-        f.weapon.visible=holding;f.weapon.position.set(.31+recoil,.55+.76*lift,.48);f.weapon.rotation.z=-1.3*lift+(recoil?.22:0);
-        f.arms.forEach(({arm,hand,side})=>{arm.rotation.x=holding?-1.55:-.7;arm.rotation.z=holding?-side*(.25+.45*lift):0;hand.position.y=holding ? .52+.64*lift : .49;hand.position.x=holding?side*.16:side*.36;hand.position.z=holding ? .49 : .43;});
+        f.arms.forEach(({arm,hand,side})=>{arm.rotation.x=targeted ? -1.05 : -.7+Math.sin(time*.0015+i+side)*.035;arm.rotation.z=targeted ? side*.12 : Math.sin(time*.001+i)*side*.045;hand.position.y=targeted ? .58 : .49;hand.position.x=side*.36;hand.position.z=targeted ? .48 : .43;});
       });
       renderer.render(scene,camera);
     });
