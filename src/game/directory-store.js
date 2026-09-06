@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_URL } from './supabase-config.js';
 
 export function memoryDirectoryStore() {
   const rooms = new Map();
@@ -84,7 +85,7 @@ export function supabaseDirectoryStore(url, secret) {
 }
 
 export function getDirectoryStore() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = SUPABASE_URL;
   const secret = process.env.SUPABASE_SECRET_KEY;
   if (url && secret) return globalThis.__orbitSupabaseDirectory ??= supabaseDirectoryStore(url, secret);
   if (process.env.NODE_ENV === 'production') throw new Error('Shared rooms are not configured yet.');

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './supabase-config.js';
 
 function localSignal(topic, seatId, onSignal) {
   const channel = new BroadcastChannel(topic);
@@ -10,7 +11,7 @@ function localSignal(topic, seatId, onSignal) {
 }
 
 async function supabaseSignal(topic, seatId, onSignal, onPresence) {
-  const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+  const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   const channel = client.channel(topic, { config: { presence: { key: seatId }, broadcast: { self: false } } });
@@ -39,8 +40,6 @@ async function supabaseSignal(topic, seatId, onSignal, onPresence) {
 
 export async function openSignal({ signalKey, seatId, onSignal, onPresence }) {
   const topic = `orbit:${signalKey}`;
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
-    return localSignal(topic, seatId, onSignal);
-  }
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return localSignal(topic, seatId, onSignal);
   return supabaseSignal(topic, seatId, onSignal, onPresence);
 }
