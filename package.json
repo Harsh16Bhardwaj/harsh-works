@@ -7,9 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:game": "node --test src/game/engine.test.js"
+    "test:game": "node --test src/game/*.test.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.115.0",
     "animejs": "latest",
     "lenis": "^1.3.25",
     "lucide-react": "latest",

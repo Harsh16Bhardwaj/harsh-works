@@ -6,10 +6,10 @@ import { act, armRisk, readyRisk, fireRisk, resolveRisk, botAction, BOT_NAMES, c
 import { Character, Revolver } from './Character.jsx';
 import { phaseDelay } from './timing.js';
 import { createSoundscape } from './sound.js';
+import { clearSeat, loadSeat, rememberName, rememberedName } from './room-storage.js';
+import { createRoomSession } from './room-session.js';
 import './orbit.css';
 const TableScene = lazy(() => import('./TableScene.jsx'));
-
-const ROOM = 'liars-orbit.room.v1';
 
 function Crest({ rank = 'A', small = false }) {
   return <svg className={`orbit-crest ${small ? 'small' : ''}`} viewBox="0 0 100 110" fill="none" aria-hidden="true">
@@ -66,6 +66,7 @@ export default function OrbitGame() {
   const [copied, setCopied] = useState(false);
   const [clock, setClock] = useState(0);
   const audio = useRef(null);
+  const roomSession = useRef(null);
   const lastClaimCue = useRef('');
   const lock = useRef(false);
   const latestRevision = useRef(-1);
@@ -77,10 +78,11 @@ export default function OrbitGame() {
 
   useEffect(() => {
     try {
-      const invited = new URLSearchParams(window.location.search).get('room')?.replace(/[^a-f0-9]/gi, '').toUpperCase().slice(0, 6);
+      const invited = new URLSearchParams(window.location.search).get('room')?.replace(/[^a-z2-9]/gi, '').toUpperCase().slice(0, 6);
       if (invited) { setMode('friends'); setCode(invited); }
-      const seat = JSON.parse(sessionStorage.getItem(ROOM) || 'null');
-      if (seat?.code && seat?.token) setCredentials(seat);
+      setName(rememberedName());
+      const seat = loadSeat();
+      if (seat?.code && seat?.seatToken) setCredentials(seat);
     } catch { setStorageWarning(true); }
     setReady(true);
     const visibility = () => { if (document.hidden) audio.current?.pause(); else audio.current?.resume(); };
@@ -131,46 +133,29 @@ export default function OrbitGame() {
     return () => clearTimeout(timer);
   }, [solo, rules, leaving]);
 
-  async function request(body, creds = credentials, signal) {
-    const timeout = AbortSignal.timeout(8000);
-    const response = await fetch('/api/orbit', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(creds ? { Authorization: `Bearer ${creds.token}` } : {}) }, body: JSON.stringify({ ...body, code: body.code || creds?.code }), signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
-    const data = await response.json();
-    if (!response.ok) {
-      const error = new Error(data.error || 'Could not reach the table.');
-      error.code = data.code;
-      throw error;
-    }
-    return data;
-  }
-
   function acceptRoom(data) {
     const revision = data.game?.revision ?? -1;
     if (revision >= latestRevision.current) { latestRevision.current = revision; setRoom(data); }
   }
 
   useEffect(() => {
-    if (!credentials) return;
+    if (!ready || !credentials || roomSession.current) return;
     let cancelled = false;
-    let timer;
-    const controller = new AbortController();
-    async function poll() {
+    async function reconnect() {
       try {
-        const data = await request({ type: 'poll' }, credentials, controller.signal);
-        if (!cancelled) { acceptRoom(data); setError(''); }
+        const session = await createRoomSession({ type: 'resume', credentials, onState: acceptRoom, onError: setError });
+        if (!cancelled) { roomSession.current = session; setError(''); }
       } catch (e) {
-        if (!cancelled && ['ROOM_NOT_FOUND', 'SEAT_INVALID'].includes(e.code)) {
-          try { sessionStorage.removeItem(ROOM); } catch { /* Storage unavailable. */ }
+        if (!cancelled) {
+          clearSeat();
           setCredentials(null); setRoom(null); latestRevision.current = -1;
           setError(e.message);
-          return;
         }
-        if (!cancelled) setError(`${e.message} Your seat reconnects automatically while this page is open.`);
       }
-      if (!cancelled) timer = setTimeout(poll, 450);
     }
-    poll();
-    return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
-  }, [credentials]);
+    reconnect();
+    return () => { cancelled = true; };
+  }, [credentials, ready]);
 
   function ensureAudio() {
     if (!sound) return;
@@ -188,14 +173,13 @@ export default function OrbitGame() {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
     try {
-      const data = await request({ type, name, code: type === 'join' ? code.toUpperCase() : credentials?.code });
-      if (data.token) {
-        const creds = { token: data.token, code: data.code };
+      if (type === 'start') await roomSession.current.start();
+      else {
+        const session = await createRoomSession({ type, name, code: type === 'join' ? code.toUpperCase() : undefined, onState: acceptRoom, onError: setError });
+        roomSession.current = session;
         latestRevision.current = -1;
-        setCredentials(creds);
-        try { sessionStorage.setItem(ROOM, JSON.stringify(creds)); } catch { setStorageWarning(true); }
+        setCredentials(session.credentials);
       }
-      acceptRoom(data);
     } catch (e) { setError(e.message); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -205,7 +189,7 @@ export default function OrbitGame() {
     lock.current = true; setBusy(true); setError('');
     try {
       const action = { type, cards: selected };
-      if (room) acceptRoom(await request({ type: 'move', action, revision: game.revision }));
+      if (room) roomSession.current.act(action, game.revision);
       else setSolo(type === 'fire' ? fireRisk(solo, 'you') : act(solo, 'you', action));
       setSelected([]);
     } catch (e) { setError(e.message); }
@@ -213,10 +197,8 @@ export default function OrbitGame() {
   }
 
   async function leave() {
-    if (credentials) {
-      try { await request({ type: 'leave' }); } catch { /* Turn timeout keeps the old table moving. */ }
-      try { sessionStorage.removeItem(ROOM); } catch { /* Storage unavailable. */ }
-    }
+    if (roomSession.current) await roomSession.current.close().catch(() => {});
+    roomSession.current = null; clearSeat();
     setCredentials(null); setRoom(null); setSolo(null); setLeaving(false); setError(''); latestRevision.current = -1;
   }
 
@@ -244,11 +226,11 @@ export default function OrbitGame() {
       <div className="orbit-setup"><div className="orbit-setup-top"><span className="orbit-eyebrow">TAKE A SEAT</span><span className="orbit-open"><i /> TABLE OPEN</span></div>
         <div className="orbit-mode" role="group" aria-label="Game mode"><button disabled={!ready} onClick={() => setMode('solo')} aria-pressed={mode === 'solo'}><Gamepad2 size={17} /> Fly solo</button><button disabled={!ready} onClick={() => setMode('friends')} aria-pressed={mode === 'friends'}><Users size={17} /> With friends</button></div>
         <h2>{mode === 'solo' ? 'Trust no one.' : 'Bring your best liars.'}</h2><p>{mode === 'solo' ? 'Not even the house bots. Three personalities, absolutely no poker face.' : 'Share this page and a room code. Up to four players; bots fill the spare seats.'}</p>
-        <label className="orbit-label" htmlFor="orbit-name">YOUR TABLE NAME <span>OPTIONAL</span></label><input id="orbit-name" maxLength={18} placeholder="Traveller" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+        <label className="orbit-label" htmlFor="orbit-name">YOUR TABLE NAME <span>OPTIONAL</span></label><input id="orbit-name" maxLength={18} placeholder="Traveller" value={name} onChange={(e) => { setName(e.target.value); rememberName(e.target.value); }} autoComplete="name" />
         <ol className="orbit-quick-rules"><li><b>01</b><span><strong>Play 1–3 cards face down.</strong> Say they match the rank shown on the table. You may be lying.</span></li><li><b>02</b><span><strong>The next player chooses.</strong> They either play more cards or press “Call Liar” to check your cards. Jokers always count.</span></li><li><b>03</b><span><strong>The loser takes the shot.</strong> A liar loses if caught. A wrong caller loses if every card matches. Every shot has a fresh 1-in-6 chance of DEAD.</span></li></ol>
-        {mode === 'solo' ? <><button className="orbit-primary" disabled={!ready || Boolean(credentials)} onClick={() => startSolo()}>{ready ? 'Deal me in' : 'Opening the table…'}<ArrowRight size={18} /></button></> : <><button className="orbit-primary" disabled={busy || Boolean(credentials)} onClick={() => roomAction('create')}>Create a room<ArrowRight size={18} /></button><div className="orbit-join"><input aria-label="Room code" placeholder="ROOM CODE" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/[^a-z0-9]/gi, '').toUpperCase())} /><button disabled={code.length !== 6 || busy || Boolean(credentials)} onClick={() => roomAction('join')}>Join <ArrowRight size={15} /></button></div></>}
+        {mode === 'solo' ? <><button className="orbit-primary" disabled={!ready || Boolean(credentials)} onClick={() => startSolo()}>{ready ? 'Deal me in' : 'Opening the table…'}<ArrowRight size={18} /></button></> : <><button className="orbit-primary" disabled={busy || Boolean(credentials)} onClick={() => roomAction('create')}>Create a room<ArrowRight size={18} /></button><div className="orbit-join"><input aria-label="Room code" placeholder="ROOM CODE" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/[^a-z2-9]/gi, '').toUpperCase())} /><button disabled={code.length !== 6 || busy || Boolean(credentials)} onClick={() => roomAction('join')}>Join <ArrowRight size={15} /></button></div></>}
         {credentials && <button className="orbit-resume" onClick={leave}>Reconnecting to {credentials.code} · Leave room</button>}
-        <p className="orbit-setup-note">{mode === 'solo' ? 'Ambient sound starts when you join. Headphones recommended.' : 'Rooms need the same running game server. They expire after two hours without activity.'}</p>
+        <p className="orbit-setup-note">{mode === 'solo' ? 'Ambient sound starts when you join. Headphones recommended.' : 'Friends connect directly to the room creator. Rooms expire after two hours without activity.'}</p>
       </div>
     </section>}
 
