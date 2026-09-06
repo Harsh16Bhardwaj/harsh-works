@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, AudioLines, Check, CircleHelp, Copy, Gamepad2, Moon, Sparkles, Users, Volume2, VolumeX, X } from 'lucide-react';
 import { act, armRisk, readyRisk, fireRisk, resolveRisk, botAction, BOT_NAMES, createGame, nextRound, RANK_NAMES, viewFor } from './engine.js';
-import { Character, Revolver } from './Character.jsx';
+import { Character, ShotCinematic } from './Character.jsx';
 import { phaseDelay } from './timing.js';
 import { createSoundscape } from './sound.js';
 import { clearSeat, loadSeat, rememberName, rememberedName } from './room-storage.js';
@@ -68,12 +68,14 @@ export default function OrbitGame() {
   const audio = useRef(null);
   const roomSession = useRef(null);
   const lastClaimCue = useRef('');
+  const lastGameCue = useRef('');
   const lock = useRef(false);
   const latestRevision = useRef(-1);
   const game = room?.game || (solo ? viewFor(solo, 'you') : null);
   const youId = room ? room.playerId : 'you';
   const you = game?.players.find((p) => p.id === youId);
   const yourTurn = game?.phase === 'playing' && game.players[game.turn].id === youId;
+  const waitingTurn = game?.phase === 'playing' && !yourTurn;
   const forced = game?.last && (you?.count === 0 || game.players.filter((p) => p.alive && p.count > 0).length <= 1);
 
   useEffect(() => {
@@ -91,6 +93,11 @@ export default function OrbitGame() {
   }, []);
 
   useEffect(() => { audio.current?.setVolume(sound ? volume / 100 : 0); }, [sound, volume]);
+  useEffect(() => {
+    if (!game?.id || lastGameCue.current === game.id) return;
+    lastGameCue.current = game.id;
+    audio.current?.cue('start');
+  }, [game?.id]);
   useEffect(() => {
     if (game?.phase === 'reveal') audio.current?.cue('challenge');
     if (game?.phase === 'loading') audio.current?.cue('load');
@@ -209,6 +216,7 @@ export default function OrbitGame() {
 
   const opponents = game?.players.filter((p) => p.id !== youId) || [];
   const reveal = game?.reveal;
+  const loserPlayer = reveal ? game.players.find((player) => player.id === reveal.loserId) : null;
   const activePlayerId = game?.phase === 'playing' ? game.players[game.turn].id : reveal?.loserId;
   return <main className="orbit-app">
     <div className="orbit-scenery" aria-hidden="true"><div className="orbit-moon" /><div className="orbit-horizon" /></div>
@@ -228,7 +236,7 @@ export default function OrbitGame() {
         <h2>{mode === 'solo' ? 'Trust no one.' : 'Bring your best liars.'}</h2><p>{mode === 'solo' ? 'Not even the house bots. Three personalities, absolutely no poker face.' : 'Share this page and a room code. Up to four players; bots fill the spare seats.'}</p>
         <label className="orbit-label" htmlFor="orbit-name">YOUR TABLE NAME <span>OPTIONAL</span></label><input id="orbit-name" maxLength={18} placeholder="Traveller" value={name} onChange={(e) => { setName(e.target.value); rememberName(e.target.value); }} autoComplete="name" />
         <ol className="orbit-quick-rules"><li><b>01</b><span><strong>Play 1–3 cards face down.</strong> Say they match the rank shown on the table. You may be lying.</span></li><li><b>02</b><span><strong>The next player chooses.</strong> They either play more cards or press “Call Liar” to check your cards. Jokers always count.</span></li><li><b>03</b><span><strong>The loser takes the shot.</strong> A liar loses if caught. A wrong caller loses if every card matches. Every shot has a fresh 1-in-6 chance of DEAD.</span></li></ol>
-        {mode === 'solo' ? <><button className="orbit-primary" disabled={!ready || Boolean(credentials)} onClick={() => startSolo()}>{ready ? 'Deal me in' : 'Opening the table…'}<ArrowRight size={18} /></button></> : <><button className="orbit-primary" disabled={busy || Boolean(credentials)} onClick={() => roomAction('create')}>Create a room<ArrowRight size={18} /></button><div className="orbit-join"><input aria-label="Room code" placeholder="ROOM CODE" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/[^a-z2-9]/gi, '').toUpperCase())} /><button disabled={code.length !== 6 || busy || Boolean(credentials)} onClick={() => roomAction('join')}>Join <ArrowRight size={15} /></button></div></>}
+        {mode === 'solo' ? <><button className="orbit-primary" disabled={!ready || Boolean(credentials)} onClick={() => startSolo()}>{ready ? 'Deal me in' : 'Opening the table…'}<ArrowRight size={18} /></button></> : <><button className={`orbit-primary ${code ? 'orbit-create-muted' : ''}`} disabled={busy || Boolean(credentials) || Boolean(code)} onClick={() => roomAction('create')}>Create a room<ArrowRight size={18} /></button><div className={`orbit-join ${code ? 'has-code' : ''}`}><input aria-label="Room code" placeholder="ROOM CODE" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/[^a-z2-9]/gi, '').toUpperCase())} /><button disabled={code.length !== 6 || busy || Boolean(credentials)} onClick={() => roomAction('join')}>Join <ArrowRight size={15} /></button></div></>}
         {credentials && <button className="orbit-resume" onClick={leave}>Reconnecting to {credentials.code} · Leave room</button>}
         <p className="orbit-setup-note">{mode === 'solo' ? 'Ambient sound starts when you join. Headphones recommended.' : 'Friends connect directly to the room creator. Rooms expire after two hours without activity.'}</p>
       </div>
@@ -236,7 +244,7 @@ export default function OrbitGame() {
 
     {room && !game && <section className="orbit-lobby"><p className="orbit-eyebrow">PRIVATE TABLE · WITH FRIENDS</p><h1>The company<br />you <em>don’t keep.</em></h1><p>Copy the invite. Your friend opens it and joins with the code already filled in.</p><button className="orbit-room-code" onClick={copyCode} aria-label="Copy room invite">{room.code}{copied ? <Check size={22} /> : <Copy size={22} />}</button><div className="orbit-lobby-seats">{Array.from({ length: 4 }, (_, i) => <div key={i}><span>{room.seats[i]?.name.slice(0, 1) || '✧'}</span><strong>{room.seats[i]?.name || 'Open seat'}</strong><small>{room.seats[i] ? 'READY TO LIE' : 'A BOT CAN FILL IN'}</small></div>)}</div>{room.host ? <button className="orbit-primary" disabled={busy} onClick={() => roomAction('start')}>Start the table <ArrowRight size={18} /></button> : <p className="orbit-wait">Waiting for the host to deal…</p>}<p className="orbit-setup-note">30 seconds per human turn. Bots take about 5 seconds. A bot plays if someone steps away.</p><button className="orbit-resume" onClick={leave}>Leave room</button></section>}
 
-    {game && <section className="orbit-game">
+    {game && <section className={`orbit-game ${yourTurn ? 'is-your-turn' : ''} ${waitingTurn ? 'is-waiting-turn' : ''}`}>
       <div className="orbit-game-bar"><div><span className="orbit-live-dot" />{room ? `ROOM ${room.code}` : 'SOLO TABLE'}<span className="orbit-bar-divider">/</span>ROUND {String(game.round).padStart(2, '0')}{room && game.phase === 'playing' && !game.players[game.turn].bot && <span className="orbit-clock">{Math.max(0, Math.ceil((room.due - clock) / 1000))}s</span>}</div><button onClick={() => setLeaving(true)}>Leave table <ArrowRight size={14} /></button></div>
       <div className={`orbit-turn-banner ${yourTurn?'is-yours':''}`} aria-live="polite"><div className="orbit-rank-badge"><span>TABLE CARDS</span><strong>{RANK_NAMES[game.rank]}</strong><small>Jokers count</small></div><div className="orbit-current-turn"><span className="orbit-turn-pulse" /> <strong>{game.phase==='playing'?(yourTurn?'YOUR TURN':game.players[game.turn].name.toUpperCase()):game.phase==='resolved'||game.phase==='finished'?(reveal?.eliminated?'DEAD':'SAFE'):(reveal?.loser || '').toUpperCase()}</strong><small>{game.phase==='playing'?'NOW PLAYING':game.phase==='reveal'?'CARDS REVEALED':game.phase==='loading'?'PICKING UP THE GUN':game.phase==='armed'?'PULL THE TRIGGER':game.phase==='firing'?'TAKING THE SHOT':'RESULT'}</small></div></div>
       <div className={`orbit-table-area phase-${game.phase}`}><Suspense fallback={null}><TableScene players={opponents} activeId={activePlayerId} phase={game.phase}/></Suspense>
@@ -248,16 +256,16 @@ export default function OrbitGame() {
           <p className="orbit-claim">{game.last ? <><strong>{game.players[game.last.player].name}</strong> claims {game.last.count} {RANK_NAMES[game.rank]}<span>Play more cards or challenge this claim.</span></> : <>No cards played yet.<span>The first player must play 1–3 cards.</span></>}</p>
         </div>
         {reveal && <div className={`orbit-reveal risk-${game.phase}`} key={`reveal-${game.round}`} role="status">
-          <div className="orbit-sequence-steps"><span className="done">01 · CHECK CARDS</span><span className={game.phase !== 'reveal' ? 'done' : ''}>02 · PULL TRIGGER</span><span className={['resolved','finished'].includes(game.phase) ? 'done' : ''}>03 · RESULT</span></div>
-          <h2>{reveal.liar ? `${reveal.accused} lied.` : `${reveal.accused} told the truth.`}</h2>
-          <p><strong>{reveal.accused}</strong> claimed {reveal.cards.length} {RANK_NAMES[game.rank]}, but played {reveal.cards.map(r=>r==='J'?'Joker':RANK_NAMES[r].slice(0,-1)).join(' + ')}. {reveal.liar ? `${reveal.accused} must pull the trigger.` : `${reveal.challenger} made a wrong call and must pull the trigger.`}</p>
+          <p className="orbit-eyebrow">CARDS REVEALED</p>
+          <h2>{reveal.liar ? 'LIE.' : 'TRUE.'}</h2>
+          <p className="orbit-reveal-verdict">{reveal.cards.map(r=>r==='J'?'Joker':RANK_NAMES[r].slice(0,-1)).join(' + ')}</p>
           <div className="orbit-reveal-cards">{reveal.cards.map((rank,i)=><div className="orbit-flip" style={{'--i':i}} key={i}><Card rank={rank}/></div>)}</div>
-          {game.phase === 'reveal' ? <p className="orbit-risk-caption">{reveal.loser} lost the challenge and must pull the trigger.</p> : <>
-            <Revolver phase={game.phase} eliminated={reveal.eliminated}/>
-            {game.phase === 'loading' && <p className="orbit-risk-caption">Picking up the gun…<span>This shot has a fresh 1-in-6 chance of DEAD.</span></p>}
-            {game.phase === 'armed' && <><p className="orbit-risk-caption"><strong>{reveal.loserId === youId ? 'You lost. Pull the trigger.' : `${reveal.loser} lost and must pull the trigger.`}</strong><span>Shot {reveal.shot} · 1-in-6 chance of DEAD</span></p>{reveal.loserId===youId ? <button className="orbit-fire" disabled={busy} onClick={()=>move('fire')}>Pull the trigger <span>↗</span></button> : <p className="orbit-wait">Waiting for {reveal.loser} to pull the trigger…</p>}</>}
-            {game.phase === 'firing' && <p className="orbit-risk-caption">{reveal.loser} pulls the trigger…</p>}
-            {['resolved','finished'].includes(game.phase) && <><div className={`orbit-shot-result ${reveal.eliminated?'danger':''}`}><b>{reveal.eliminated?'DEAD':'SAFE'}</b><span>{reveal.eliminated?`${reveal.loser} is out of the game.`:`${reveal.loser} survives the shot.`}</span></div>{game.phase==='finished' ? <><h3>{game.winner===youId?'You take the table.':`${game.players.find(p=>p.id===game.winner)?.name} wins.`}</h3><button className="orbit-primary" onClick={leave}>Back to the lounge <ArrowRight size={17}/></button></> : room ? <p className="orbit-wait">A new hand is coming…</p> : <button className="orbit-primary" onClick={()=>setSolo(nextRound(solo))}>Next hand <ArrowRight size={17}/></button>}</>}
+          {game.phase === 'reveal' ? <p className="orbit-risk-caption">{reveal.loser} takes the shot.</p> : <>
+            <ShotCinematic player={loserPlayer} phase={game.phase} eliminated={reveal.eliminated}/>
+            {game.phase === 'loading' && <p className="orbit-risk-caption">{reveal.loser} picks up the gun.</p>}
+            {game.phase === 'armed' && <>{reveal.loserId===youId ? <button className="orbit-fire" disabled={busy} onClick={()=>move('fire')}>Pull the trigger <span>↗</span></button> : <p className="orbit-wait">Waiting for {reveal.loser}…</p>}</>}
+            {game.phase === 'firing' && <p className="orbit-risk-caption">BANG.</p>}
+            {['resolved','finished'].includes(game.phase) && <><div className={`orbit-shot-result ${reveal.eliminated?'danger':''}`}><b>{reveal.eliminated?'DEAD':'SAFE'}</b></div>{game.phase==='finished' ? <><h3>{game.winner===youId?'You take the table.':`${game.players.find(p=>p.id===game.winner)?.name} wins.`}</h3><button className="orbit-primary" onClick={leave}>Back to the lounge <ArrowRight size={17}/></button></> : room ? <p className="orbit-wait">Next hand…</p> : <button className="orbit-primary" onClick={()=>setSolo(nextRound(solo))}>Next hand <ArrowRight size={17}/></button>}</>}
           </>}
         </div>}
       </div>

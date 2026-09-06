@@ -37,7 +37,8 @@ export function createSoundscape() {
         gain.gain.setValueAtTime(level,at);gain.gain.exponentialRampToValueAtTime(.001,at+duration);
         source.connect(filter);filter.connect(gain);gain.connect(master);source.start(at);
       };
-      if(kind==='deal') { noise(now,.09,.28,1500);noise(now+.1,.08,.22,1050);pulse(now+.03,520,300,.1,.12); }
+      if(kind==='start') { pulse(now,294,294,.16,.28);pulse(now+.19,392,392,.13,.26);pulse(now+.36,440,440,.13,.27);pulse(now+.55,587,587,.34,.34);noise(now+.56,.18,.08,1900); }
+      else if(kind==='deal') { noise(now,.09,.28,1500);noise(now+.1,.08,.22,1050);pulse(now+.03,520,300,.1,.12); }
       else if(kind==='challenge') { pulse(now,150,62,.32,.35,'sawtooth');pulse(now+.28,120,48,.38,.3,'sawtooth'); }
       else if(kind==='load') { for(let i=0;i<5;i++)pulse(now+i*.22,900-i*90,430,.08,.16,'square');noise(now+.04,.45,.13,1800); }
       else if(kind==='ready') { noise(now,.1,.3,2200);pulse(now,340,95,.22,.28,'square'); }
