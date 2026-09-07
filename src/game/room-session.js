@@ -100,7 +100,13 @@ async function openLeaderSession(room, credentials, onState, onError) {
   const heartbeat = setInterval(() => directory({ type: 'heartbeat', code: room.code }, credentials).catch(() => {}), 5 * 60 * 1000);
   return {
     room, credentials,
-    async start() { await directory({ type: 'start', code: room.code }, credentials); controller.start(); },
+    async start() {
+      const snapshot = controller.snapshot();
+      if (!snapshot.allowBots && snapshot.seats.length < 2) throw new Error('Invite at least one friend, or enable bot fillers.');
+      await directory({ type: 'start', code: room.code }, credentials);
+      controller.start();
+    },
+    setAllowBots(allowBots) { controller.setAllowBots(allowBots); },
     act(action, revision) { return controller.intent({ seatId: room.seatId, actionId: crypto.randomUUID(), revision, action }); },
     async close() {
       closed = true; clearInterval(heartbeat);
@@ -155,6 +161,7 @@ async function openGuestSession(room, credentials, onState, onError) {
   return {
     room, credentials,
     start() { throw new Error('Waiting for the room creator.'); },
+    setAllowBots() { throw new Error('Only the room creator can change bot settings.'); },
     act(action, revision) {
       if (!channel || channel.readyState !== 'open' || !latest) throw new Error('Still connecting to the room creator.');
       send(channel, actionIntent({ roomId: room.id, epoch: latest.epoch, seatId: room.seatId, actionId: crypto.randomUUID(), revision, action }));

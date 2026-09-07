@@ -5,7 +5,7 @@ const copy = value => JSON.parse(JSON.stringify(value));
 
 export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.random, now = Date.now, scheduleTimer = setTimeout, cancelTimer = clearTimeout } = {}) {
   if (!roomId || !leader?.id) throw new Error('A leader and room are required.');
-  let state = { roomId, epoch, leaderId: leader.id, seats: [copy(leader)], game: null, due: null };
+  let state = { roomId, epoch, leaderId: leader.id, seats: [copy(leader)], allowBots: true, game: null, due: null };
   let timer = null;
   const listeners = new Set();
   const actionIds = new Set();
@@ -40,7 +40,7 @@ export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.r
     subscribe(listener) { listeners.add(listener); listener(controller.snapshot()); return () => listeners.delete(listener); },
     snapshot() { return copy(state); },
     viewFor(seatId) {
-      return { roomId: state.roomId, epoch: state.epoch, leaderId: state.leaderId, seats: copy(state.seats), due: state.due, game: state.game ? viewFor(state.game, seatId) : null };
+      return { roomId: state.roomId, epoch: state.epoch, leaderId: state.leaderId, seats: copy(state.seats), allowBots: state.allowBots, due: state.due, game: state.game ? viewFor(state.game, seatId) : null };
     },
     addSeat(seat) {
       if (!seat?.id || state.seats.some(existing => existing.id === seat.id)) return controller.snapshot();
@@ -55,10 +55,16 @@ export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.r
       else setState({ ...state, game: { ...state.game, players: state.game.players.map(player => player.id === seatId ? { ...player, bot: true } : player) } });
       return controller.snapshot();
     },
+    setAllowBots(allowBots) {
+      if (state.game) throw new Error('Bot settings cannot change after the deal.');
+      setState({ ...state, allowBots: Boolean(allowBots) });
+      return controller.snapshot();
+    },
     start() {
       if (state.game) return controller.snapshot();
+      if (!state.allowBots && state.seats.length < 2) throw new Error('Invite at least one friend, or enable bot fillers.');
       const seats = state.seats.map(seat => ({ id: seat.id, name: seat.name }));
-      while (seats.length < 4) seats.push({ id: `bot-${seats.length}`, name: BOT_NAMES[seats.length - 1], bot: true });
+      if (state.allowBots) while (seats.length < 4) seats.push({ id: `bot-${seats.length}`, name: BOT_NAMES[seats.length - 1], bot: true });
       setState({ ...state, game: createGame(seats, rng, roomId) });
       return controller.snapshot();
     },
@@ -80,7 +86,7 @@ export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.r
     },
     restore(snapshot) {
       if (!snapshot || snapshot.roomId !== roomId || snapshot.leaderId !== leader.id || !snapshot.game) throw new Error('Invalid leader snapshot.');
-      state = { ...copy(snapshot), game: upgradeGame(snapshot.game, rng), epoch: Math.max(epoch, snapshot.epoch + 1) };
+      state = { ...copy(snapshot), allowBots: snapshot.allowBots !== false, game: upgradeGame(snapshot.game, rng), epoch: Math.max(epoch, snapshot.epoch + 1) };
       armTimer(); notify();
       return controller.snapshot();
     },

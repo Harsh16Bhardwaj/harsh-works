@@ -35,6 +35,18 @@ test('leader runs a bot turn on the client and leader restore starts a new epoch
   controller.dispose();
 });
 
+test('friend rooms can opt out of bot fillers and require two human seats', () => {
+  const controller=createLeaderController({roomId:'room',leader:{id:'host',name:'Host'},rng:seed(10),scheduleTimer:()=>0,cancelTimer:()=>{}});
+  controller.setAllowBots(false);
+  assert.equal(controller.snapshot().allowBots,false);
+  assert.throws(()=>controller.start(),/Invite at least one friend/);
+  controller.addSeat({id:'guest',name:'Guest'});
+  controller.start();
+  assert.equal(controller.snapshot().game.players.length,2);
+  assert.ok(controller.snapshot().game.players.every(player=>!player.bot));
+  controller.dispose();
+});
+
 test('player name is remembered without storing empty values', () => {
   const values=new Map();const storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
   assert.equal(rememberName('  Harsh  ',storage),true);assert.equal(rememberedName(storage),'Harsh');
