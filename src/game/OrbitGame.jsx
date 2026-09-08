@@ -40,18 +40,9 @@ function LastBluffMark() {
 }
 
 function FateMarks({ risks = 0, alive = true }) {
-  const safe = Math.max(0, risks - (alive ? 0 : 1));
-  return <div className={`orbit-fate ${alive ? '' : 'is-out'}`} aria-label={alive ? `${safe} escapes` : 'Eliminated'}><span>{alive ? `${safe} ESCAPES` : 'OUT'}</span><div>{Array.from({length:6},(_,i)=><i className={i<safe?'used':''} key={i}/>)}</div></div>;
-}
-
-function matchOrder(gameId, playerId) {
-  const value = `${gameId}:${playerId}`;
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
+  const spent = Math.max(0, risks - (alive ? 0 : 1));
+  const lives = alive ? Math.max(1, 6 - risks) : 0;
+  return <div className={`orbit-fate ${alive ? '' : 'is-out'}`} aria-label={alive ? `${lives} ${lives === 1 ? 'life' : 'lives'} remaining` : 'Eliminated'}><span>{alive ? `${lives} ${lives === 1 ? 'LIFE' : 'LIVES'}` : 'OUT'}</span><div>{Array.from({length:6},(_,i)=><i className={i<spent?'used':''} key={i}/>)}</div></div>;
 }
 
 function Modal({ title, onClose, children }) {
@@ -234,8 +225,10 @@ export default function OrbitGame() {
     catch { setError(`Room code: ${room.code}. Select and copy it to share.`); }
   }
 
-  const opponents = game?.players.filter((p) => p.id !== youId) || [];
-  const visualOpponents = [...opponents].sort((a, b) => matchOrder(game?.id, a.id) - matchOrder(game?.id, b.id));
+  const youIndex = game?.players.findIndex((player) => player.id === youId) ?? -1;
+  const visualOpponents = game && youIndex >= 0
+    ? Array.from({ length: game.players.length - 1 }, (_, offset) => game.players[(youIndex + offset + 1) % game.players.length])
+    : [];
   const scenePlayers = game ? [...visualOpponents, ...Array(Math.max(0, 3 - visualOpponents.length)).fill(null), you] : [];
   const reveal = game?.reveal;
   const activePlayerId = game?.phase === 'playing' ? game.players[game.turn].id : reveal?.loserId;

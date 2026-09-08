@@ -8,7 +8,8 @@ export function tableSeats(players) {
   const ordered = occupied.includes(3) ? [3, ...occupied.filter(slot => slot !== 3)] : occupied;
   const seats = Array(4).fill(null);
   ordered.forEach((slot, index) => {
-    const angle = Math.PI / 4 + index * Math.PI * 2 / ordered.length;
+    // Slots follow the game turn order clockwise: local player, then the player on their right.
+    const angle = Math.PI / 4 - index * Math.PI * 2 / ordered.length;
     const x = Math.cos(angle) * 3.08, z = Math.sin(angle) * 1.91;
     seats[slot] = { x, z, angle, facing: Math.atan2(-x, -z) };
   });
@@ -27,13 +28,27 @@ export function hammerPose(phase, elapsed, eliminated, reduced = false) {
     angle = 1.3 * (1 - t ** 3); lift = .13 * (1 - t ** 3);
     if (contact) {
       const after = Math.max(0, elapsed - CONTACT_SECONDS);
-      angle = reduced ? 0 : Math.sin(Math.min(1, after / .52) * Math.PI) * (eliminated ? .12 : .48);
+      // Commit to the hit. A rebound followed by a second retreat reads as a
+      // double strike, so the mallet remains planted for the result beat.
+      angle = 0;
+      lift = 0;
       squash = eliminated || reduced ? 0 : Math.max(0, Math.cos(after * 11)) * Math.exp(-after * 6) * .5;
-      if (!eliminated && after > .52 && !reduced) {
-        const retreat = clamp01((after-.52)/.55);
-        angle = .95 * (retreat*retreat*(3-2*retreat)); lift = retreat*.14;
-      }
     }
   }
   return { angle, lift, contact, squash, result };
+}
+
+export function cinematicCameraPose(seat, phase) {
+  const close = phase === 'reveal' || phase === 'loading' || phase === 'armed';
+  const distance = close ? 3.08 : 4.05;
+  const forwardX = Math.sin(seat.facing), forwardZ = Math.cos(seat.facing);
+  return {
+    close,
+    position: {
+      x: seat.x + forwardX * distance,
+      y: close ? 2.12 : 2.72,
+      z: seat.z + forwardZ * distance,
+    },
+    target: { x: seat.x, y: close ? 1.06 : .98, z: seat.z },
+  };
 }

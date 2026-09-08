@@ -1,8 +1,8 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import * as T from 'three';
-import {makeActor,makeHammer,part,surface} from './stage-models.js';
-import {CONTACT_SECONDS,clamp01,damp,hammerPose,tableSeats} from './presentation.js';
+import {makeActor,makeHammer,makeWreckage,part,surface} from './stage-models.js';
+import {CONTACT_SECONDS,cinematicCameraPose,clamp01,damp,hammerPose,tableSeats} from './presentation.js';
 
 export default function StageScene({players,activeId,phase,gameKey,round,onContact}) {
   const host=useRef(null),latest=useRef(null),[ready,setReady]=useState(false);
@@ -20,6 +20,14 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
     const key=new T.DirectionalLight(0xffd6a3,2.5);key.position.set(-4,6,5);scene.add(key);
     const rim=new T.DirectionalLight(0x8bb4b1,1.8);rim.position.set(4,4,-4);scene.add(rim);
     const gold=surface(0xb99661,.7),wood=surface(0x392b23),felt=surface(0x1c4438),dark=surface(0x142623);
+    const roomFloor=part(scene,new T.CylinderGeometry(6.7,6.9,.16,12),surface(0x101b19,.18),0,-.48,0);
+    roomFloor.scale.z=.72;
+    const floorInset=part(scene,new T.TorusGeometry(5.25,.025,6,96),gold,0,-.385,0);floorInset.rotation.x=-Math.PI/2;floorInset.scale.y=.72;
+    for(let i=0;i<7;i++){
+      const angle=-Math.PI*.82+i*Math.PI*.273,x=Math.sin(angle)*5.8,z=Math.cos(angle)*4.15;
+      const panel=part(scene,new T.BoxGeometry(1.25,2.2,.12),surface(i%2?0x162622:0x1d2b28),x,.58,z);
+      panel.rotation.y=angle;part(panel,new T.BoxGeometry(.04,1.7,.025),gold,0,0,.075);
+    }
     const table=new T.Group();scene.add(table);
     for(const [radius,y,height,mat] of [[3.14,.33,.2,wood],[3.1,.45,.045,gold],[3.02,.49,.035,felt]]){
       part(table,new T.CylinderGeometry(radius,radius,height,80),mat,0,y,0).scale.z=.59;
@@ -32,12 +40,11 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
     context.fillStyle=gradient;context.fillRect(0,0,64,64);const radial=new T.CanvasTexture(canvas);
     const actors=tableSeats(latest.current.players).map((seat,i)=>{
       if(!seat)return null;
-      const actor=makeActor(seat,latest.current.players[i]?.character??i);scene.add(actor.root);
+      const actor=makeActor(seat,latest.current.players[i]?.character??i,i===3);scene.add(actor.root);
       actor.lastCount=latest.current.players[i]?.count??latest.current.players[i]?.hand?.length??5;
-      actor.hammer=makeHammer(seat);scene.add(actor.hammer.root);
+      actor.hammer=makeHammer(seat,actor.contactY);scene.add(actor.hammer.root);
       const shadow=part(scene,new T.PlaneGeometry(1.7,1.4),new T.MeshBasicMaterial({map:radial,color:0x020b08,transparent:true,opacity:.65,depthWrite:false}),seat.x,.515,seat.z);shadow.rotation.x=-Math.PI/2;
-      actor.debris=new T.Group();actor.debris.position.set(seat.x,.52,seat.z);actor.debris.visible=false;scene.add(actor.debris);
-      for(let j=0;j<12;j++)part(actor.debris,new T.TetrahedronGeometry(.08+(j%3)*.025),surface(j%3?0x38453d:0xb69466));
+      actor.debris=makeWreckage(actor);scene.add(actor.debris);
       return actor;
     });
     const target=new T.Object3D();target.position.set(0,1,0);scene.add(target);
@@ -70,7 +77,7 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
     const flightMaterial=surface(0xe1d0a9),cardGeometry=new T.BoxGeometry(.19,.29,.015);
     for(let i=0;i<3;i++)part(flights,cardGeometry,flightMaterial);flights.visible=false;
     el.appendChild(renderer.domElement);setReady(true);
-    let width=0,height=0;const point=new T.Vector3();
+    let width=0,height=0,baseZoom=1.62;const point=new T.Vector3();
     function project(x,y,z){point.set(x,y,z).project(camera);return{x:(point.x+1)*width/2,y:(1-point.y)*height/2};}
     function labels(){
       actors.forEach((actor,i)=>{
@@ -83,7 +90,7 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
       const center=el.parentElement.querySelector('.orbit-table-center');
       if(center&&!center.classList.contains('is-revealing')){const p=project(0,.52,-.05);center.style.left=`${p.x}px`;center.style.top=`${p.y-75}px`;}
     }
-    function resize(){({width,height}=el.getBoundingClientRect());renderer.setSize(width,height,false);camera.aspect=width/Math.max(1,height);camera.zoom=width<600?1.08:1.62;camera.updateProjectionMatrix();labels();}
+    function resize(){({width,height}=el.getBoundingClientRect());renderer.setSize(width,height,false);camera.aspect=width/Math.max(1,height);baseZoom=width<600?1.08:1.62;camera.zoom=baseZoom;camera.updateProjectionMatrix();labels();}
     const observer=new ResizeObserver(resize);observer.observe(el);resize();
     const lost=event=>{event.preventDefault();setReady(false);},restored=()=>setReady(true);
     renderer.domElement.addEventListener('webglcontextlost',lost);renderer.domElement.addEventListener('webglcontextrestored',restored);
@@ -97,13 +104,18 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
       if(nextKey!==phaseKey){phaseKey=nextKey;phaseAt=elapsed;}
       const t=elapsed-phaseAt,index=state.players.findIndex(p=>p?.id===state.activeId),actor=actors[index];
       const consequence=['loading','armed','firing','resolved','finished'].includes(state.phase);
+      // Keep the evidence reveal wide; the cinematic move starts only after the cards have landed.
+      const cinematic=['loading','armed','firing','resolved','finished'].includes(state.phase);
       const eliminated=actor?state.players[index]?.alive===false:false;
       const pose=hammerPose(state.phase,t,eliminated,reduced.matches);
       if(actor&&pose.contact&&contactKey!==phaseKey){contactKey=phaseKey;state.onContact?.({eliminated,pan:actor.seat.x/3.1});}
-      const a=damp(7,dt),camA=damp(4,dt),seat=actor?.seat??{x:0,z:0,facing:0};
-      const focus=consequence&&!reduced.matches;
-      focusCamera.set(seat.x*.22,6.9,9.1);focusLook.set(seat.x*.28,1.1,seat.z*.28);
+      const a=damp(7,dt),camA=damp(state.phase==='loading'?2.15:state.phase==='armed'?3.2:4.4,dt),seat=actor?.seat??{x:0,z:0,facing:0};
+      const focus=cinematic&&!!actor&&!reduced.matches,cinema=cinematicCameraPose(seat,state.phase);
+      focusCamera.set(cinema.position.x,cinema.position.y,cinema.position.z);
+      focusLook.set(cinema.target.x,cinema.target.y,cinema.target.z);
       camera.position.lerp(focus?focusCamera:baseCamera,camA);look.lerp(focus?focusLook:baseLook,camA);
+      const desiredZoom=focus?Math.min(baseZoom,1.22):baseZoom;
+      camera.zoom+=(desiredZoom-camera.zoom)*camA;camera.updateProjectionMatrix();
       const after=t-CONTACT_SECONDS;
       if(focus&&pose.contact&&after<.22)camera.position.x+=Math.sin(after*100)*.017*Math.exp(-after*17);
       camera.lookAt(look);target.position.lerp(scratch.set(seat.x,.9,seat.z),a);
@@ -120,23 +132,35 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
       actors.forEach((f,i)=>{
         if(!f)return;const p=state.players[i];if(!p){f.root.visible=false;return;}
         const active=i===index,targeted=active&&consequence,dead=p.alive===false,hit=targeted&&pose.contact;
-        f.root.visible=!dead||(targeted&&!hit);f.hammer.root.visible=targeted;
-        f.hammer.pivot.rotation.x=-pose.angle;f.hammer.root.position.y=2.93+pose.lift;
-        f.debris.visible=dead&&(!targeted||hit);
-        if(f.debris.visible)f.debris.children.forEach((shard,j)=>{const s=targeted?clamp01(Math.max(0,after)/.9):1,theta=j/12*Math.PI*2;shard.position.set(Math.cos(theta)*s*.7,Math.max(.02,.35+(j%3)*.12+s*1.1-s*s*2),Math.sin(theta)*s*.45);shard.rotation.set(s*j,s*j*.7,s*j*.4);});
+        const collapse=dead&&hit?clamp01(Math.max(0,after)/.32):0,broken=dead&&(!targeted||collapse>=1);
+        f.root.visible=!dead||(targeted&&!broken);f.hammer.root.visible=targeted;
+        f.hammer.pivot.rotation.x=-pose.angle;f.hammer.root.position.y=f.hammer.baseY+pose.lift;
+        f.debris.visible=broken;
+        if(f.debris.visible)f.debris.children.forEach((piece,j)=>{
+          const s=targeted&&!reduced.matches?clamp01(Math.max(0,after-.12)/.56):1;
+          const eased=1-(1-s)*(1-s)*(1-s);
+          piece.position.lerpVectors(piece.userData.startPosition,piece.userData.restPosition,eased);
+          piece.position.y+=Math.sin(s*Math.PI)*(.12+(j%3)*.035);
+          piece.quaternion.slerpQuaternions(piece.userData.startQuaternion,piece.userData.restQuaternion,eased);
+        });
         const count=p.count??p.hand?.length??0;
         if(count<f.lastCount&&state.phase==='playing'){f.playAt=elapsed;flight={from:new T.Vector3(f.seat.x,.92,f.seat.z),at:elapsed,count:Math.min(3,f.lastCount-count)};}
         f.lastCount=count;f.cards.children.forEach((card,j)=>card.visible=j<count);
         const motion=reduced.matches?0:1,play=clamp01((elapsed-f.playAt)/.6),reach=motion*Math.sin(play*Math.PI);
+        const suspense=targeted&&motion?(state.phase==='loading'?clamp01(t/1.25):state.phase==='armed'?1:0):0;
+        const fear=suspense*suspense*(3-2*suspense),tremble=state.phase==='armed'?Math.sin(t*10+i)*fear:0;
         const breathe=motion*Math.sin(elapsed*1.8+i*1.7)*.012,squash=targeted?pose.squash:0;
-        f.root.scale.set(1+squash*.3,1-squash,1+squash*.3);f.torso.position.y=.62+breathe;
-        const brace=targeted&&!pose.contact?.18:0;f.neck.rotation.x+=((brace-reach*.13)-f.neck.rotation.x)*a;
+        f.root.position.set(f.seat.x,-squash*.08-collapse*.22,f.seat.z);f.root.rotation.y=f.seat.facing;f.root.rotation.z=collapse*.24;
+        f.root.scale.set(1+squash*.3+collapse*.12,1-squash-collapse*.68,1+squash*.3);f.torso.position.y=.62+breathe+fear*.035;
+        f.torso.rotation.x+=((-fear*.14)-f.torso.rotation.x)*a;
+        f.head.position.y=.2+fear*.035;f.head.scale.set(1+fear*.055,1+fear*.11-squash*.35-collapse*.18,1+fear*.035);
+        const brace=(targeted&&!pose.contact)?(.18+fear*.38):0,reaction=hit?(dead?collapse:Math.exp(-Math.max(0,after)*7)*.28):0;f.neck.rotation.x+=((brace+fear*.12-reach*.13+reaction*.35)-f.neck.rotation.x)*a;
         let gaze=0;if(!active&&actor){gaze=Math.atan2(seat.x-f.seat.x,seat.z-f.seat.z)-f.seat.facing;gaze=Math.atan2(Math.sin(gaze),Math.cos(gaze));}
         f.neck.rotation.y+=(Math.max(-.42,Math.min(.42,gaze))*.6-f.neck.rotation.y)*a;
-        f.head.rotation.z=motion*Math.sin(elapsed*.65+i)*.025;
+        f.head.rotation.z=motion*Math.sin(elapsed*.65+i)*.025+tremble*.075;
         if(elapsed>f.blinkAt+.14)f.blinkAt=elapsed+3.1+i*.61;
-        const blink=motion&&elapsed>f.blinkAt?.12:1;f.eyes.forEach(eye=>eye.scale.y=blink);
-        f.arms.forEach(({shoulder,elbow,side})=>{shoulder.rotation.x+=((-.45-reach*.5-(targeted?.16:0))-shoulder.rotation.x)*a;shoulder.rotation.z=side*brace;elbow.rotation.x+=((-.7-reach*.4)-elbow.rotation.x)*a;});
+        const blink=motion&&elapsed>f.blinkAt?.12:1;f.eyes.forEach(eye=>eye.scale.y=blink*(1+fear*.72));
+        f.arms.forEach(({shoulder,elbow,side})=>{shoulder.rotation.x+=((-.45-reach*.5-(targeted?.16:0)-fear*.34+reaction*.45)-shoulder.rotation.x)*a;shoulder.rotation.z=side*(brace+reaction);elbow.rotation.x+=((-.7-reach*.4-fear*.42+reaction*.7)-elbow.rotation.x)*a;});
         f.cards.rotation.y=motion*Math.sin(elapsed*.7+i)*.02;f.halo.visible=active&&!dead;f.halo.scale.setScalar(1);
       });
       flights.visible=!!flight&&!reduced.matches&&elapsed-flight.at<.48;
@@ -146,7 +170,7 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
     return()=>{
       observer.disconnect();renderer.setAnimationLoop(null);renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',restored);
       const geometries=new Set(),materials=new Set();scene.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m));});
-      geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());radial.dispose();renderer.dispose();renderer.domElement.remove();
+      geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());actors.forEach(actor=>actor?.youTexture?.dispose());radial.dispose();renderer.dispose();renderer.domElement.remove();
     };
   },[gameKey]);
   return <div className={`orbit-scene ${ready?'is-ready':''}`} ref={host} aria-hidden="true"/>;

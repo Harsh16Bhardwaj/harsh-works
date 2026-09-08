@@ -8,7 +8,7 @@ export function part(parent, geometry, material, x=0, y=0, z=0) {
   object.position.set(x,y,z); parent.add(object); return object;
 }
 
-export function makeActor(seat, kind=0) {
+export function makeActor(seat, kind=0, local=false) {
   kind %= 4;
   const root=new T.Group(); root.position.set(seat.x,0,seat.z); root.rotation.y=seat.facing;
   const skin=surface([0xb97643,0x486174,0x819b85,0x998677][kind]);
@@ -72,25 +72,73 @@ export function makeActor(seat, kind=0) {
     part(card,new T.BoxGeometry(.125,.2,.003),coat,0,0,-.009);
   }
   const halo=part(root,new T.TorusGeometry(.5,.014,6,48),gold,0,1.47,-.16);
-  const chair=part(root,new T.BoxGeometry(.68,.76,.13),shadow,0,.55,-.3);
-  part(chair,new T.BoxGeometry(.54,.035,.04),gold,0,.27,.08);
-  return {root,torso,neck,head,eyes,arms,cards,halo,kind,seat,blinkAt:2+kind*1.1,lastCount:5,playAt:-100};
+  const chair=new T.Group();chair.position.z=-.31;root.add(chair);
+  const chairWood=surface([0x263b34,0x253644,0x30443b,0x393238][kind]);
+  // A readable lounge-chair silhouette: grounded legs, cushion, arms and a tall framed back.
+  part(chair,new T.BoxGeometry(.76,.12,.64),chairWood,0,.24,0);
+  part(chair,new T.BoxGeometry(.65,.09,.53),coat,0,.32,.035);
+  part(chair,new T.BoxGeometry(.72,.76,.12),chairWood,0,.69,-.25);
+  part(chair,new T.BoxGeometry(.58,.57,.075),coat,0,.68,-.17);
+  for(const side of [-1,1]){
+    part(chair,new T.BoxGeometry(.1,.7,.1),chairWood,side*.31,-.05,-.12);
+    part(chair,new T.BoxGeometry(.1,.7,.1),chairWood,side*.31,-.05,.22);
+    part(chair,new T.BoxGeometry(.11,.11,.58),chairWood,side*.43,.5,.02);
+    part(chair,new T.BoxGeometry(.06,.06,.48),gold,side*.43,.58,.04);
+  }
+  const crestGeometry=[new T.ConeGeometry(.11,.22,3),new T.OctahedronGeometry(.11),new T.BoxGeometry(.18,.18,.08),new T.TorusGeometry(.11,.025,5,16)][kind];
+  const crest=part(chair,crestGeometry,gold,0,1.11,-.24);crest.rotation.z=kind===0?Math.PI:0;
+  let youTexture=null;
+  if(local){
+    const badge=document.createElement('canvas');badge.width=256;badge.height=96;const ctx=badge.getContext('2d');
+    ctx.fillStyle='rgba(7,20,18,.92)';ctx.beginPath();ctx.roundRect(16,12,224,72,34);ctx.fill();
+    ctx.strokeStyle='rgba(224,187,117,.92)';ctx.lineWidth=4;ctx.stroke();
+    ctx.fillStyle='#f1d49d';ctx.font='700 42px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('YOU',128,50);
+    youTexture=new T.CanvasTexture(badge);youTexture.colorSpace=T.SRGBColorSpace;
+    const marker=new T.Sprite(new T.SpriteMaterial({map:youTexture,transparent:true,depthTest:false}));
+    marker.position.set(0,.65,0);marker.scale.set(.72,.27,1);marker.renderOrder=8;head.add(marker);
+  }
+  const bodyMeshes=[];torso.traverse(object=>{if(object.isMesh)bodyMeshes.push(object);});
+  const contactY=kind===0?1.77:1.6;
+  return {root,torso,neck,head,eyes,arms,cards,halo,chair,bodyMeshes,kind,seat,youTexture,contactY,blinkAt:2+kind*1.1,lastCount:5,playAt:-100};
 }
 
-export function makeHammer(seat) {
-  const root=new T.Group(); root.position.set(seat.x,2.93,seat.z);
+export function makeWreckage(actor) {
+  actor.root.updateMatrixWorld(true);
+  const group=new T.Group();group.position.set(actor.seat.x,0,actor.seat.z);group.rotation.y=actor.seat.facing;
+  const inverseRoot=actor.root.matrixWorld.clone().invert(),localMatrix=new T.Matrix4();
+  actor.bodyMeshes.forEach((source,index)=>{
+    const piece=new T.Mesh(source.geometry,source.material);
+    localMatrix.multiplyMatrices(inverseRoot,source.matrixWorld);
+    localMatrix.decompose(piece.position,piece.quaternion,piece.scale);
+    piece.userData.startPosition=piece.position.clone();
+    piece.userData.startQuaternion=piece.quaternion.clone();
+    source.geometry.computeBoundingBox();
+    const size=new T.Vector3();source.geometry.boundingBox.getSize(size).multiply(piece.scale);
+    const lane=(index%5)-2,depth=(Math.floor(index/5)%4)-1.5;
+    piece.userData.restPosition=new T.Vector3(lane*.2+(index%2)*.06,-.36+Math.max(.025,size.y*.42),depth*.16-.12);
+    piece.userData.restQuaternion=new T.Quaternion().setFromEuler(new T.Euler(Math.PI/2+(index%3)*.22,(index%4)*.47,(index%2?1:-1)*.3));
+    group.add(piece);
+  });
+  group.visible=false;
+  return group;
+}
+
+export function makeHammer(seat, contactY=1.6) {
+  // Include the lower striking cap in the collision height so no visible mesh crosses the actor.
+  const headOffset=1.05,headHalfHeight=.35,baseY=contactY+headOffset+headHalfHeight;
+  const root=new T.Group(); root.position.set(seat.x,baseY,seat.z);
   root.rotation.y=seat.facing; // local +Z points toward the table center
   const pivot=new T.Group(); root.add(pivot);
   const brass=surface(0xc09b5c,.7), steel=surface(0x747e78,.8), dark=surface(0x232d2c,.35);
-  const head=new T.Group(); head.position.y=-1.56; pivot.add(head);
+  const head=new T.Group(); head.position.y=-headOffset; pivot.add(head);
   // At contact the broad circular underside is horizontal and above the target.
   part(head,new T.CylinderGeometry(.47,.47,.58,20),steel);
   part(head,new T.CylinderGeometry(.5,.5,.07,20),brass,0,.3,0);
   part(head,new T.CylinderGeometry(.5,.5,.08,20),dark,0,-.31,0);
   part(head,new T.TorusGeometry(.475,.025,6,32),brass,0,.18,0).rotation.x=Math.PI/2;
-  part(pivot,new T.CylinderGeometry(.065,.085,1.48,10),surface(0x68472d),0,-.72,0);
+  part(pivot,new T.CylinderGeometry(.065,.085,1,10),surface(0x68472d),0,-.47,0);
   for(let i=0;i<5;i++) part(pivot,new T.CylinderGeometry(.075,.075,.045,10),dark,0,-.2-i*.12,0);
   part(root,new T.SphereGeometry(.105,10,8),brass);
   root.visible=false;
-  return {root,pivot,head};
+  return {root,pivot,head,baseY,contactY};
 }
