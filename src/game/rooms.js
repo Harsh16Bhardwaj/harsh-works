@@ -26,7 +26,7 @@ function tick(room) {
   else if (room.game.phase === 'resolved') room.game = nextRound(room.game);
   else {
     const player = room.game.players[room.game.turn];
-    room.game = act(room.game, player.id, botAction(viewFor(room.game, player.id)));
+    room.game = act(room.game, player.id, botAction(viewFor(room.game, player.id), Math.random, player.personality));
   }
   schedule(room);
 }

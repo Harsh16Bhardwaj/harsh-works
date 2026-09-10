@@ -1,3 +1,5 @@
+import { assignPersonality, chooseBotMove } from './bot-personalities.js';
+
 // Shared rules for the browser's solo table and the authoritative LAN table.
 export const RANKS = ['A', 'K', 'Q'];
 export const RANK_NAMES = { A: 'Aces', K: 'Kings', Q: 'Queens', J: 'Joker' };
@@ -33,7 +35,8 @@ export function createGame(seats, rng = Math.random, id = String(Date.now())) {
     version: 2, id, round: 0, phase: 'playing', rank: 'A', turn: 0, last: null,
     reveal: null, winner: null, log: [], revision: 0,
     players: seats.map((seat, i) => ({
-      id: seat.id, name: seat.name, bot: Boolean(seat.bot), style: i === 0 ? 0 : (i - 1) % 3, character: (i + 3) % 4,
+      id: seat.id, name: seat.name, bot: Boolean(seat.bot), personality: seat.bot ? assignPersonality(rng) : undefined,
+      style: i === 0 ? 0 : (i - 1) % 3, character: (i + 3) % 4,
       alive: true, hand: [], played: [], risks: 0, losingDraw: 1 + Math.floor(rng() * 6), score: 0, caught: 0, honest: 0,
     })),
   };
@@ -45,6 +48,7 @@ export function createGame(seats, rng = Math.random, id = String(Date.now())) {
 export function upgradeGame(previous, rng = Math.random) {
   const state = copy(previous);
   state.players.forEach((player) => {
+    if (player.bot && !player.personality) player.personality = assignPersonality(rng);
     if (!Number.isInteger(player.losingDraw) || player.losingDraw < 1 || player.losingDraw > 6) {
       const remaining = Math.max(1, 6 - player.risks);
       player.losingDraw = Math.min(6, player.risks + 1 + Math.floor(rng() * remaining));
@@ -175,7 +179,7 @@ export function resolveRisk(previous, rng = Math.random) {
 export function viewFor(state, id) {
   return {
     ...state,
-    players: state.players.map(({ hand, played, losingDraw, ...p }) => ({
+    players: state.players.map(({ hand, played, losingDraw, personality, ...p }) => ({
       ...p, count: hand.length, ...(p.id === id ? { hand: [...hand], played: [...played] } : {}),
     })),
     last: state.last ? { player: state.last.player, count: state.last.count } : null,
@@ -200,22 +204,8 @@ export function bluffEstimate(view) {
   return Math.max(.04, Math.min(.96, (1 - plausible) * .65 + observed * .35));
 }
 
-export function botAction(view, rng = Math.random) {
-  const player = view.players[view.turn];
-  const hand = player.hand;
-  if (!hand) throw new Error('The bot needs its own hand.');
-  const forced = view.last && (hand.length === 0 || view.players.filter((p) => p.alive && p.count > 0).length <= 1);
-  const truthful = hand.map((rank, i) => rank === view.rank || rank === 'J' ? i : -1).filter((i) => i >= 0);
-  const suspicion = bluffEstimate(view);
-  const threshold = [.56, .46, .62][player.style] + player.risks * .025 - (truthful.length === 0 ? .1 : 0);
-  if (forced || (view.last && suspicion > threshold + (rng() - .5) * .12)) return { type: 'challenge' };
-  const bluff = !truthful.length || rng() < [.14, .32, .23][player.style] / (1 + player.risks * .25);
-  const bad = hand.map((r, i) => r !== view.rank && r !== 'J' ? i : -1).filter((i) => i >= 0);
-  const options = bluff && bad.length ? shuffle(bad, rng) : shuffle(truthful, rng);
-  // Small bluffs are easier to sell. Honest hands shed more cards, but sometimes
-  // retain one matching card to avoid a forced lie on the following turn.
-  const count = bluff ? Math.min(options.length, rng() < .78 ? 1 : 2) : Math.min(options.length, options.length >= 3 && rng() < .45 ? 2 : 3);
-  return { type: 'play', cards: options.slice(0, count) };
+export function botAction(view, rng = Math.random, personality = 'opportunist') {
+  return chooseBotMove(view, bluffEstimate(view), rng, personality);
 }
 
 export function validSave(state) {

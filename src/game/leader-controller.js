@@ -33,7 +33,7 @@ export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.r
     if (game.phase === 'resolved') return nextRound(game, rng);
     const player = game.players[game.turn];
     if (!player.bot) return game;
-    return act(game, player.id, botAction(viewFor(game, player.id), rng), rng);
+    return act(game, player.id, botAction(viewFor(game, player.id), rng, player.personality), rng);
   }
 
   const controller = {

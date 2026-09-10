@@ -172,7 +172,7 @@ test('concurrent joins preserve all seats and concurrent moves apply only once',
   assert.equal((await second({ type: 'poll', code: host.code }, host.token)).game.revision, 1);
 });
 
-test('bots wait five seconds; late and simultaneous polls advance only one turn', async t => {
+test('bots honor personality timing; late and simultaneous polls advance only one turn', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: 100000 });
   const request = createRoomHandler(memoryRoomStore());
   const host = await request({ type: 'create' });
@@ -180,8 +180,9 @@ test('bots wait five seconds; late and simultaneous polls advance only one turn'
   await request({ type: 'start', code: host.code }, host.token);
   await request({ type: 'move', code: host.code, revision: 0, action: { type: 'play', cards: [0] } }, host.token);
   const botTurn = await request({ type: 'move', code: host.code, revision: 1, action: { type: 'play', cards: [0] } }, guest.token);
-  assert.equal(botTurn.due - Date.now(), 5000);
-  t.mock.timers.tick(4999);
+  const delay = botTurn.due - Date.now();
+  assert.ok(delay >= 1400 && delay <= 5300);
+  t.mock.timers.tick(delay - 1);
   assert.equal((await request({ type: 'poll', code: host.code }, host.token)).game.revision, 2);
   t.mock.timers.tick(60000);
   const polls = await Promise.all([request({ type: 'poll', code: host.code }, host.token), request({ type: 'poll', code: host.code }, guest.token)]);
