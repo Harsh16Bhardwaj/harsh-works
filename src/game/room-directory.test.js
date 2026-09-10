@@ -16,6 +16,25 @@ test('directory creates, joins, resumes, starts and closes a room', async () => 
   assert.deepEqual(await request({ type: 'close', code: host.code }, hostCredentials(host)), { closed: true });
 });
 
+test('directory shares lobby skins and permits changes only before the deal',async()=>{
+  const request=createDirectoryHandler(memoryDirectoryStore(),()=>1000);
+  const host=await request({type:'create',name:'Host',character:6});
+  assert.equal(host.seats[0].character,6);
+  const changed=await request({type:'profile',code:host.code,character:4},{seatToken:host.seatToken,leaderToken:host.leaderToken});
+  assert.equal(changed.seats[0].character,4);
+  await request({type:'start',code:host.code},{seatToken:host.seatToken,leaderToken:host.leaderToken});
+  await assert.rejects(request({type:'profile',code:host.code,character:2},{seatToken:host.seatToken}),/locked after the deal/);
+});
+
+test('directory keeps every occupied seat visually unique',async()=>{
+  const request=createDirectoryHandler(memoryDirectoryStore(),()=>1000);
+  const host=await request({type:'create',name:'Host',character:8});
+  const guest=await request({type:'join',code:host.code,name:'Guest',character:8});
+  assert.equal(guest.seats[0].character,8);
+  assert.notEqual(guest.seats[1].character,8);
+  assert.equal(new Set(guest.seats.map(seat=>seat.character)).size,2);
+});
+
 test('directory uses compare-and-swap for simultaneous joins and extends active rooms', async () => {
   let clock = 1000;
   const store = memoryDirectoryStore();

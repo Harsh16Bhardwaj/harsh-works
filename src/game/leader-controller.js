@@ -2,6 +2,12 @@ import { act, armRisk, readyRisk, fireRisk, resolveRisk, botAction, BOT_NAMES, c
 import { phaseDelay } from './timing.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
+const freeCharacter = (value, seats) => {
+  const requested=Math.max(0,Math.min(10,Number(value)||0));
+  const occupied=new Set(seats.map(seat=>Math.max(0,Math.min(10,Number(seat.character)||0))));
+  if(!occupied.has(requested))return requested;
+  return Array.from({length:5},(_,index)=>index).find(index=>!occupied.has(index))??requested;
+};
 
 export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.random, now = Date.now, scheduleTimer = setTimeout, cancelTimer = clearTimeout } = {}) {
   if (!roomId || !leader?.id) throw new Error('A leader and room are required.');
@@ -46,7 +52,7 @@ export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.r
       if (!seat?.id || state.seats.some(existing => existing.id === seat.id)) return controller.snapshot();
       if (state.game) throw new Error('The game has already started.');
       if (state.seats.length >= 4) throw new Error('The room is full.');
-      setState({ ...state, seats: [...state.seats, copy(seat)] });
+      setState({ ...state, seats: [...state.seats, {...copy(seat),character:freeCharacter(seat.character,state.seats)}] });
       return controller.snapshot();
     },
     removeSeat(seatId) {
@@ -63,9 +69,15 @@ export function createLeaderController({ roomId, leader, epoch = 1, rng = Math.r
     start() {
       if (state.game) return controller.snapshot();
       if (!state.allowBots && state.seats.length < 2) throw new Error('Invite at least one friend, or enable bot fillers.');
-      const seats = state.seats.map(seat => ({ id: seat.id, name: seat.name }));
+      const seats = state.seats.map(seat => ({ id: seat.id, name: seat.name, character:seat.character }));
       if (state.allowBots) while (seats.length < 4) seats.push({ id: `bot-${seats.length}`, name: BOT_NAMES[seats.length - 1], bot: true });
       setState({ ...state, game: createGame(seats, rng, roomId) });
+      return controller.snapshot();
+    },
+    updateSeat(seatId, character) {
+      if(state.game)throw new Error('Appearance is locked after the deal.');
+      const skin=freeCharacter(character,state.seats.filter(seat=>seat.id!==seatId));
+      setState({...state,seats:state.seats.map(seat=>seat.id===seatId?{...seat,character:skin}:seat)});
       return controller.snapshot();
     },
     intent({ seatId, actionId, revision, action }) {

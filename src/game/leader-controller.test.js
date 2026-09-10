@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLeaderController } from './leader-controller.js';
 import { actionIntent, readRoomMessage } from './room-protocol.js';
-import { rememberName, rememberedName } from './room-storage.js';
+import { rememberName, rememberedName, rememberSkin, rememberedSkin } from './room-storage.js';
 
 const seed = n => () => { n=(n*1664525+1013904223)>>>0;return n/4294967296; };
 
@@ -47,8 +47,28 @@ test('friend rooms can opt out of bot fillers and require two human seats', () =
   controller.dispose();
 });
 
+test('leader keeps lobby appearances unique and randomizes bot skins',()=>{
+  const controller=createLeaderController({roomId:'room',leader:{id:'host',name:'Host',character:8},rng:seed(12),scheduleTimer:()=>0,cancelTimer:()=>{}});
+  controller.addSeat({id:'guest',name:'Guest',character:8});
+  const lobby=controller.snapshot();
+  assert.notEqual(lobby.seats[0].character,lobby.seats[1].character);
+  controller.start();
+  const characters=controller.snapshot().game.players.map(player=>player.character);
+  assert.equal(new Set(characters).size,4);
+  assert.equal(characters[0],8);
+  controller.dispose();
+});
+
 test('player name is remembered without storing empty values', () => {
   const values=new Map();const storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
   assert.equal(rememberName('  Harsh  ',storage),true);assert.equal(rememberedName(storage),'Harsh');
   rememberName('',storage);assert.equal(rememberedName(storage),'');
+});
+
+test('selected character skin is remembered locally',()=>{
+  const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+  assert.equal(rememberSkin(7,storage),true);assert.equal(rememberedSkin(storage),7);
+  assert.equal(rememberSkin(9,storage),true);assert.equal(rememberedSkin(storage),9);
+  assert.equal(rememberSkin(10,storage),true);assert.equal(rememberedSkin(storage),10);
+  assert.equal(rememberSkin(11,storage),false);assert.equal(rememberedSkin(storage),10);
 });

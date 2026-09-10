@@ -1,5 +1,4 @@
 import { botDelay } from './bot-personalities.js';
-
 // Shared pacing: persisted deadlines, rather than request frequency, drive rooms.
 // Let each consequence read as a sequence: evidence, camera move, reaction, impact, result.
 export const TIMING = { reveal: 1800, loading: 1450, armed: 1050, firing: 420, resolved: 1900, human: 30000 };

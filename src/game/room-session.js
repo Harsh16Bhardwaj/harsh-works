@@ -25,8 +25,8 @@ const send = (channel, message) => {
   if (channel?.readyState === 'open') channel.send(JSON.stringify(message));
 };
 
-export async function createRoomSession({ type, name, code, credentials: saved, onState, onError }) {
-  const credentials = saved || await directory({ type, name, code });
+export async function createRoomSession({ type, name, character, code, credentials: saved, onState, onError }) {
+  const credentials = saved || await directory({ type, name, character, code });
   const room = saved ? await directory({ type: 'resume', code: saved.code }, saved) : credentials;
   const auth = { code: room.code, seatToken: credentials.seatToken || saved?.seatToken, leaderToken: credentials.leaderToken || saved?.leaderToken };
   saveSeat(auth);
@@ -82,6 +82,7 @@ async function openLeaderSession(room, credentials, onState, onError) {
     try {
       const { from, data } = message;
       if (data?.kind === 'join' && data.seat?.id === from) await makeOffer(data.seat);
+      else if (data?.kind === 'profile') controller.updateSeat(from, data.character);
       else if (data?.kind === 'leave') { peers.get(from)?.pc.close(); peers.delete(from); controller.removeSeat(from); }
       else if (data?.kind === 'answer' && peers.has(from)) {
         const pc = peers.get(from).pc;
@@ -107,6 +108,7 @@ async function openLeaderSession(room, credentials, onState, onError) {
       controller.start();
     },
     setAllowBots(allowBots) { controller.setAllowBots(allowBots); },
+    async setCharacter(character) { await directory({type:'profile',code:room.code,character},credentials);controller.updateSeat(room.seatId,character); },
     act(action, revision) { return controller.intent({ seatId: room.seatId, actionId: crypto.randomUUID(), revision, action }); },
     async close() {
       closed = true; clearInterval(heartbeat);
@@ -162,6 +164,7 @@ async function openGuestSession(room, credentials, onState, onError) {
     room, credentials,
     start() { throw new Error('Waiting for the room creator.'); },
     setAllowBots() { throw new Error('Only the room creator can change bot settings.'); },
+    async setCharacter(character) { await directory({type:'profile',code:room.code,character},credentials);signal.send(room.leaderId,{kind:'profile',character}); },
     act(action, revision) {
       if (!channel || channel.readyState !== 'open' || !latest) throw new Error('Still connecting to the room creator.');
       send(channel, actionIntent({ roomId: room.id, epoch: latest.epoch, seatId: room.seatId, actionId: crypto.randomUUID(), revision, action }));

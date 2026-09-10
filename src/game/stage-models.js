@@ -1,4 +1,5 @@
 import * as T from 'three';
+export { makeLegacyActor as makeActor };
 
 export function surface(color, metalness = 0) {
   return new T.MeshStandardMaterial({ color, metalness, roughness: metalness ? .36 : .78, flatShading: true });
@@ -8,11 +9,12 @@ export function part(parent, geometry, material, x=0, y=0, z=0) {
   object.position.set(x,y,z); parent.add(object); return object;
 }
 
-export function makeActor(seat, kind=0, local=false) {
-  kind %= 4;
+export function makeLegacyActor(seat, kind=0, local=false) {
+  kind = Math.max(0,Math.min(10,Number(kind)||0));
+  const habibi=kind===8,modiji=kind===9,ravi=kind===10,baseKind=kind%4;
   const root=new T.Group(); root.position.set(seat.x,0,seat.z); root.rotation.y=seat.facing;
-  const skin=surface([0xb97643,0x486174,0x819b85,0x998677][kind]);
-  const coat=surface([0x243b32,0x27343f,0x293a35,0x292d30][kind]);
+  const skin=surface([0xb97643,0x486174,0x819b85,0x998677,0x9b452d,0x66899d,0xb59b51,0x913f4f,0x9a6548,0xbd7b59,0xb87855][kind]);
+  const coat=surface([0x243b32,0x27343f,0x293a35,0x292d30,0x382820,0x202f3b,0x313423,0x39232d,0xb77772,0xa94825,0x282a2c][kind]);
   const gold=surface(0xbe965b,.65), ivory=surface(0xe8d0a1), shadow=surface(0x101b1c);
   const torso=new T.Group(); torso.position.y=.62; root.add(torso);
   part(torso,new T.CylinderGeometry(.3,.43,.7,8),coat,0,0,0);
@@ -21,25 +23,77 @@ export function makeActor(seat, kind=0, local=false) {
     lapel.rotation.z=side*-.3;
     part(root,new T.BoxGeometry(.18,.32,.25),shadow,side*.19,.18,0);
   }
-  const tie=part(torso,new T.ConeGeometry(.065,.25,4),gold,0,.04,.32); tie.rotation.z=Math.PI;
+  const tie=part(torso,new T.ConeGeometry(.065,.25,4),gold,0,.04,.32); tie.rotation.z=Math.PI;tie.visible=!habibi&&!modiji&&!ravi;
   const neck=new T.Group(); neck.position.y=.42; torso.add(neck);
   part(neck,new T.CylinderGeometry(.12,.15,.18,8),shadow);
   const head=new T.Group(); head.position.y=.2; neck.add(head);
-  part(head,kind===2?new T.BoxGeometry(.53,.49,.4):new T.IcosahedronGeometry(.34,1),skin);
-  if(kind===0) {
+  const face=part(head,ravi?new T.SphereGeometry(.34,20,14):baseKind===2?new T.BoxGeometry(.53,.49,.4):new T.IcosahedronGeometry(.34,1),skin);
+  if(habibi)face.scale.x=.88;
+  if(ravi){
+    const hair=surface(0x17191a),hairLight=surface(0x303232),stole=surface(0xd8c8a6),rust=surface(0x8c4738),teal=surface(0x477d78),mouth=surface(0x5b302b);
+    face.scale.set(.9,1.08,.94);
+    part(head,new T.SphereGeometry(.36,18,12,0,Math.PI*2,0,Math.PI*.4),hair,0,.16,-.025);
+    for(const side of [-1,1]){
+      const temple=part(head,new T.SphereGeometry(.13,12,8),hair,side*.28,.12,-.005);temple.scale.set(.72,1.65,.8);
+      const brow=part(head,new T.BoxGeometry(.17,.035,.04),hair,side*.135,.115,.3);brow.rotation.z=side*.12;
+    }
+    const sweep=part(head,new T.SphereGeometry(.19,14,10),hairLight,-.1,.35,.03);sweep.scale.set(1.35,.65,.75);sweep.rotation.z=-.38;
+    const forelock=part(head,new T.CapsuleGeometry(.045,.2,6,10),hair,-.09,.23,.29);forelock.rotation.z=-.42;
+    const nose=part(head,new T.ConeGeometry(.07,.19,10),skin,0,-.035,.31);nose.rotation.x=Math.PI/2;
+    const smile=part(head,new T.TorusGeometry(.115,.012,6,26,Math.PI*.92),mouth,0,-.16,.315);smile.rotation.z=Math.PI+.08;
+    for(const side of [-1,1]){
+      const panel=part(torso,new T.BoxGeometry(.16,.58,.045),stole,side*.2,-.02,.32);panel.rotation.z=side*-.07;
+      for(let row=0;row<4;row++){
+        part(panel,new T.TorusGeometry(.027,.009,5,10),row%2?teal:rust,0,-.2+row*.13,.027);
+      }
+    }
+  } else if(modiji){
+    const white=surface(0xe7e2d5),orange=surface(0xe77c18),red=surface(0xa72d27),frame=surface(0x62554a,.45);
+    face.scale.x=.92;
+    part(head,new T.SphereGeometry(.35,12,7,0,Math.PI*2,0,Math.PI*.36),white,0,.12,-.02);
+    const beard=part(head,new T.ConeGeometry(.25,.42,8),white,0,-.19,.16);beard.rotation.z=Math.PI;
+    part(head,new T.BoxGeometry(.22,.05,.07),white,0,-.095,.31);
+    const crown=part(head,new T.CylinderGeometry(.24,.32,.2,8),gold,0,.39,-.015);
+    crown.rotation.y=Math.PI/8;
+    for(const side of [-1,0,1])part(head,new T.ConeGeometry(.075,.19,4),gold,side*.17,.57,-.01);
+    part(head,new T.OctahedronGeometry(.055),red,0,.4,.3);
+    for(const side of [-1,1]){
+      const lens=part(head,new T.TorusGeometry(.13,.014,7,24),frame,side*.14,.04,.31);lens.scale.y=.86;
+      part(head,new T.BoxGeometry(.16,.025,.045),white,side*.14,.115,.29).rotation.z=side*.08;
+    }
+    part(head,new T.BoxGeometry(.1,.018,.02),frame,0,.04,.31);
+    for(let i=0;i<13;i++){
+      const t=i/12,x=(t-.5)*.54,y=.22-.36*(1-Math.pow(t*2-1,2));
+      part(torso,new T.IcosahedronGeometry(.055,1),orange,x,y,.34);
+    }
+  } else if(habibi){
+    const cloth=surface(0x37363a),stripe=surface(0x956858),moustache=surface(0x302321),band=surface(0xa23831);
+    part(head,new T.SphereGeometry(.4,12,8,0,Math.PI*2,0,Math.PI*.42),cloth,0,.12,-.025);
+    part(head,new T.CylinderGeometry(.374,.374,.034,14,1,true),band,0,.205,0);
+    for(const side of [-1,1]){
+      const drape=part(head,new T.BoxGeometry(.15,.55,.12),cloth,side*.31,-.015,-.03);drape.rotation.z=side*.13;
+      for(let row=0;row<3;row++)part(drape,new T.BoxGeometry(.155,.018,.125),stripe,0,-.18+row*.18,.002);
+      const lens=part(head,new T.TorusGeometry(.13,.018,7,24),moustache,side*.145,.035,.31);lens.scale.y=.9;
+    }
+    part(head,new T.BoxGeometry(.11,.025,.025),moustache,0,.035,.31);
+    const nose=part(head,new T.ConeGeometry(.085,.2,5),skin,0,-.035,.3);nose.rotation.x=Math.PI/2;
+    for(const side of [-1,1]){const whisker=part(head,new T.BoxGeometry(.145,.026,.035),moustache,side*.07,-.115,.322);whisker.rotation.z=side*.12;}
+    const goatee=part(head,new T.ConeGeometry(.052,.15,5),moustache,0,-.205,.29);goatee.rotation.z=Math.PI;
+    part(torso,new T.BoxGeometry(.23,.04,.04),surface(0xe0b29a),0,.27,.31);
+  } else if(baseKind===0) {
     for(const side of [-1,1]) {
       const ear=part(head,new T.ConeGeometry(.135,.43,3),skin,side*.22,.31,-.03); ear.rotation.z=side*-.16;
       part(head,new T.ConeGeometry(.08,.26,3),shadow,side*.22,.34,.025);
     }
     const muzzle=part(head,new T.ConeGeometry(.2,.35,4),ivory,0,-.09,.28); muzzle.rotation.x=Math.PI/2;
     part(head,new T.IcosahedronGeometry(.067,0),shadow,0,-.06,.45);
-  } else if(kind===1) {
+  } else if(baseKind===1) {
     const beak=part(head,new T.ConeGeometry(.135,.44,4),gold,0,-.035,.3); beak.rotation.x=Math.PI/2;
     for(const side of [-1,1]) for(let j=0;j<3;j++) {
       const feather=part(torso,new T.BoxGeometry(.14,.28,.05),coat,side*(.32+j*.035),.2-j*.05,-.03);
       feather.rotation.z=side*-.35;
     }
-  } else if(kind===2) {
+  } else if(baseKind===2) {
     part(head,new T.BoxGeometry(.55,.16,.06),shadow,0,.04,.23);
     part(head,new T.BoxGeometry(.24,.055,.06),gold,0,-.16,.23);
     for(const side of [-1,1]) { const ear=part(head,new T.CylinderGeometry(.075,.075,.07,12),gold,side*.3,0,0); ear.rotation.z=Math.PI/2; }
@@ -50,20 +104,37 @@ export function makeActor(seat, kind=0, local=false) {
   }
   const eyes=[];
   for(const side of [-1,1]) {
-    part(head,new T.BoxGeometry(.15,.07,.04),shadow,side*.135,.055,.285);
-    const eye=part(head,new T.BoxGeometry(.08,.025,.025),ivory,side*.135,.055,.31); eyes.push(eye);
-    if(kind!==2) part(head,new T.BoxGeometry(.17,.035,.05),coat,side*.135,.11,.28).rotation.z=side*.17;
+    if(ravi){
+      const white=part(head,new T.SphereGeometry(.062,12,8),ivory,side*.135,.045,.305);white.scale.set(1.35,.48,.45);
+      const eye=part(head,new T.SphereGeometry(.027,10,7),shadow,side*.12,.042,.335);eyes.push(eye);
+    }else{
+      part(head,new T.BoxGeometry(.15,.07,.04),shadow,side*.135,.055,.285);
+      const eye=part(head,new T.BoxGeometry(.08,.025,.025),ivory,side*.135,.055,.31); eyes.push(eye);
+      if(baseKind!==2&&!habibi&&!modiji) part(head,new T.BoxGeometry(.17,.035,.05),coat,side*.135,.11,.28).rotation.z=side*.17;
+    }
   }
   const arms=[];
   for(const side of [-1,1]) {
     const shoulder=new T.Group(); shoulder.position.set(side*.34,.24,.04); torso.add(shoulder);
-    part(shoulder,new T.SphereGeometry(.13,8,6),kind===2?gold:coat);
+    part(shoulder,new T.SphereGeometry(.13,8,6),baseKind===2?gold:coat);
     part(shoulder,new T.CylinderGeometry(.09,.11,.32,8),coat,0,-.16,0);
     const elbow=new T.Group(); elbow.position.y=-.3; shoulder.add(elbow);
     part(elbow,new T.CylinderGeometry(.08,.1,.28,8),coat,0,-.14,0);
     part(elbow,new T.CylinderGeometry(.09,.09,.06,8),ivory,0,-.25,0);
     part(elbow,new T.IcosahedronGeometry(.11,1),skin,0,-.32,0);
     shoulder.rotation.x=-.45; elbow.rotation.x=-.7; arms.push({shoulder,elbow,side});
+  }
+  if(modiji){
+    const bow=new T.Group();bow.position.set(.52,-.02,.28);torso.add(bow);
+    const bowWood=surface(0x9a5d2f,.25),arrowMetal=surface(0xd7c89f,.55);
+    const curve=new T.CatmullRomCurve3([new T.Vector3(0,-.47,0),new T.Vector3(.17,-.24,0),new T.Vector3(.21,0,0),new T.Vector3(.17,.24,0),new T.Vector3(0,.47,0)]);
+    part(bow,new T.TubeGeometry(curve,20,.025,6,false),bowWood);
+    const stringGeometry=new T.BufferGeometry().setFromPoints([new T.Vector3(0,-.47,0),new T.Vector3(.08,0,.01),new T.Vector3(0,.47,0)]);
+    bow.add(new T.Line(stringGeometry,new T.LineBasicMaterial({color:0xe8d8af})));
+    part(bow,new T.CylinderGeometry(.012,.012,.76,6),arrowMetal,.08,0,.025);
+    part(bow,new T.ConeGeometry(.035,.12,5),gold,.08,.43,.025);
+    part(bow,new T.ConeGeometry(.04,.12,4),coat,.08,-.4,.025).rotation.z=Math.PI;
+    bow.rotation.z=-.08;
   }
   const cards=new T.Group(); cards.position.set(0,.52,.6); cards.rotation.x=-.35; root.add(cards);
   for(let i=0;i<5;i++) {
@@ -73,7 +144,7 @@ export function makeActor(seat, kind=0, local=false) {
   }
   const halo=part(root,new T.TorusGeometry(.5,.014,6,48),gold,0,1.47,-.16);
   const chair=new T.Group();chair.position.z=-.31;root.add(chair);
-  const chairWood=surface([0x263b34,0x253644,0x30443b,0x393238][kind]);
+  const chairWood=surface([0x263b34,0x253644,0x30443b,0x393238][baseKind]);
   // A readable lounge-chair silhouette: grounded legs, cushion, arms and a tall framed back.
   part(chair,new T.BoxGeometry(.76,.12,.64),chairWood,0,.24,0);
   part(chair,new T.BoxGeometry(.65,.09,.53),coat,0,.32,.035);
@@ -85,8 +156,8 @@ export function makeActor(seat, kind=0, local=false) {
     part(chair,new T.BoxGeometry(.11,.11,.58),chairWood,side*.43,.5,.02);
     part(chair,new T.BoxGeometry(.06,.06,.48),gold,side*.43,.58,.04);
   }
-  const crestGeometry=[new T.ConeGeometry(.11,.22,3),new T.OctahedronGeometry(.11),new T.BoxGeometry(.18,.18,.08),new T.TorusGeometry(.11,.025,5,16)][kind];
-  const crest=part(chair,crestGeometry,gold,0,1.11,-.24);crest.rotation.z=kind===0?Math.PI:0;
+  const crestGeometry=[new T.ConeGeometry(.11,.22,3),new T.OctahedronGeometry(.11),new T.BoxGeometry(.18,.18,.08),new T.TorusGeometry(.11,.025,5,16)][baseKind];
+  const crest=part(chair,crestGeometry,gold,0,1.11,-.24);crest.rotation.z=baseKind===0?Math.PI:0;
   let youTexture=null;
   if(local){
     const badge=document.createElement('canvas');badge.width=256;badge.height=96;const ctx=badge.getContext('2d');
@@ -98,7 +169,7 @@ export function makeActor(seat, kind=0, local=false) {
     marker.position.set(0,.65,0);marker.scale.set(.72,.27,1);marker.renderOrder=8;head.add(marker);
   }
   const bodyMeshes=[];torso.traverse(object=>{if(object.isMesh)bodyMeshes.push(object);});
-  const contactY=kind===0?1.77:1.6;
+  const contactY=modiji?1.82:ravi?1.68:!habibi&&baseKind===0?1.77:1.6;
   return {root,torso,neck,head,eyes,arms,cards,halo,chair,bodyMeshes,kind,seat,youTexture,contactY,blinkAt:2+kind*1.1,lastCount:5,playAt:-100};
 }
 

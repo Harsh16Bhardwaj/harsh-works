@@ -5,6 +5,13 @@ const ROOM_TTL = 2 * 60 * 60 * 1000;
 const EXTENSION = 60 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const cleanName = (value) => typeof value === 'string' && value.trim() ? value.trim().slice(0, 18) : 'Traveller';
+const cleanCharacter = value => Number.isInteger(Number(value)) ? Math.max(0,Math.min(10,Number(value))) : 0;
+const freeCharacter = (value, seats) => {
+  const requested = cleanCharacter(value);
+  const occupied = new Set(seats.map(seat => cleanCharacter(seat.character)));
+  if (!occupied.has(requested)) return requested;
+  return Array.from({length:5},(_,index)=>index).find(index=>!occupied.has(index)) ?? requested;
+};
 const digest = (value) => createHash('sha256').update(String(value)).digest('hex');
 const token = () => randomBytes(24).toString('base64url');
 const fail = (message, code, status = 400) => Object.assign(new Error(message), { code, status });
@@ -18,7 +25,7 @@ function publicRoom(room, seatId) {
   return {
     id: room.id, code: room.code, signalKey: room.signalKey, leaderId: room.leaderId,
     seatId, host: seatId === room.leaderId, status: room.status,
-    seats: room.seats.map(({ id, name }) => ({ id, name })), expiresAt: room.expiresAt,
+    seats: room.seats.map(({ id, name, character }) => ({ id, name, character:cleanCharacter(character) })), expiresAt: room.expiresAt,
   };
 }
 
@@ -40,7 +47,7 @@ export function createDirectoryHandler(store, now = () => Date.now()) {
         const seatToken = token();
         const leaderToken = token();
         const timestamp = now();
-        const leader = { id: randomUUID(), name: cleanName(body.name), tokenHash: digest(seatToken) };
+        const leader = { id: randomUUID(), name: cleanName(body.name), character:cleanCharacter(body.character), tokenHash: digest(seatToken) };
         const room = {
           id: randomUUID(), code: code(), signalKey: randomBytes(18).toString('hex'),
           leaderId: leader.id, leaderTokenHash: digest(leaderToken), seats: [leader],
@@ -63,7 +70,7 @@ export function createDirectoryHandler(store, now = () => Date.now()) {
         if (room.status !== 'waiting') throw fail('This game has already started.', 'ROOM_STARTED', 409);
         if (room.seats.length >= 4) throw fail('This room is full.', 'ROOM_FULL', 409);
         const seatToken = token();
-        const seat = { id: randomUUID(), name: cleanName(body.name), tokenHash: digest(seatToken) };
+        const seat = { id: randomUUID(), name: cleanName(body.name), character:freeCharacter(body.character,room.seats), tokenHash: digest(seatToken) };
         const next = { ...room, seats: [...room.seats, seat], version: room.version + 1, lastSeenAt: now() };
         if (await store.swap(room.id, room.version, next)) return { ...publicRoom(next, seat.id), seatToken };
         continue;
@@ -71,6 +78,14 @@ export function createDirectoryHandler(store, now = () => Date.now()) {
 
       const seat = authenticate(room, credentials.seatToken);
       if (body.type === 'resume') return publicRoom(room, seat.id);
+
+      if(body.type==='profile'){
+        if(room.status!=='waiting')throw fail('Appearance is locked after the deal.','ROOM_STARTED',409);
+        const character=freeCharacter(body.character,room.seats.filter(item=>item.id!==seat.id));
+        const next={...room,seats:room.seats.map(item=>item.id===seat.id?{...item,character}:item),version:room.version+1,lastSeenAt:now()};
+        if(await store.swap(room.id,room.version,next))return publicRoom(next,seat.id);
+        continue;
+      }
 
       if (body.type === 'leave' && seat.id !== room.leaderId) {
         const next = { ...room, seats: room.seats.filter(item => item.id !== seat.id), version: room.version + 1, lastSeenAt: now() };

@@ -1,9 +1,10 @@
 import { assignPersonality, chooseBotMove } from './bot-personalities.js';
-
+import { ACTIVE_SKINS, skinName } from './skins.js';
 // Shared rules for the browser's solo table and the authoritative LAN table.
 export const RANKS = ['A', 'K', 'Q'];
 export const RANK_NAMES = { A: 'Aces', K: 'Kings', Q: 'Queens', J: 'Joker' };
-export const BOT_NAMES = ['Rahul', 'Modi', 'Mamta'];
+export const BOT_NAMES = ['Desert Fox', 'Iron Raven', 'Verdant Unit'];
+export const SKIN_COUNT = 11;
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const pick = (items, rng) => items[Math.floor(rng() * items.length)];
 
@@ -14,6 +15,18 @@ export function shuffle(items, rng = Math.random) {
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
+}
+
+export function assignUniqueCharacters(seats, rng = Math.random) {
+  const available = Array.from({ length: SKIN_COUNT }, (_, index) => index);
+  return seats.map((seat) => {
+    const requested = Number.isInteger(seat.character) && available.includes(seat.character) ? seat.character : null;
+    const candidates = available.filter(id => ACTIVE_SKINS.some(skin => skin.id === id));
+    const chosen = requested ?? candidates[Math.min(candidates.length - 1, Math.floor(rng() * candidates.length))];
+    const pickIndex = available.indexOf(chosen);
+    const [character] = available.splice(pickIndex, 1);
+    return { ...seat, character };
+  });
 }
 
 function deal(state, starter, rng) {
@@ -27,28 +40,32 @@ function deal(state, starter, rng) {
   state.claims = [];
   state.players.forEach((p) => { p.played = []; });
   state.phase = 'playing';
+  state.turnStartedAt = Date.now();
   state.log = [`Round ${state.round}. All claims are ${RANK_NAMES[state.rank]}.`, ...state.log].slice(0, 12);
 }
 
 export function createGame(seats, rng = Math.random, id = String(Date.now())) {
+  if (seats.length < 2 || seats.length > 4) throw new Error('A table needs 2–4 players.');
+  const assignedSeats = assignUniqueCharacters(seats, rng);
   const state = {
     version: 2, id, round: 0, phase: 'playing', rank: 'A', turn: 0, last: null,
-    reveal: null, winner: null, log: [], revision: 0,
-    players: seats.map((seat, i) => ({
-      id: seat.id, name: seat.name, bot: Boolean(seat.bot), personality: seat.bot ? assignPersonality(rng) : undefined,
-      style: i === 0 ? 0 : (i - 1) % 3, character: (i + 3) % 4,
-      alive: true, hand: [], played: [], risks: 0, losingDraw: 1 + Math.floor(rng() * 6), score: 0, caught: 0, honest: 0,
+    reveal: null, winner: null, log: [], events: [], turnStartedAt: Date.now(), revision: 0,
+    players: assignedSeats.map((seat, i) => ({
+      id: seat.id, name: skinName(seat.character), username: seat.name, personality: seat.bot ? assignPersonality(rng) : undefined, bot: Boolean(seat.bot), style: i === 0 ? 0 : (i - 1) % 3, character: seat.character,
+      alive: true, placement: null, hand: [], played: [], risks: 0, losingDraw: 1 + Math.floor(rng() * 6), score: 0, caught: 0, honest: 0,
     })),
   };
-  if (seats.length < 2 || seats.length > 4) throw new Error('A table needs 2–4 players.');
   deal(state, 0, rng);
   return state;
 }
 
 export function upgradeGame(previous, rng = Math.random) {
   const state = copy(previous);
+  state.events ??= [];
   state.players.forEach((player) => {
     if (player.bot && !player.personality) player.personality = assignPersonality(rng);
+    player.username ??= player.name;
+    player.name = skinName(player.character);
     if (!Number.isInteger(player.losingDraw) || player.losingDraw < 1 || player.losingDraw > 6) {
       const remaining = Math.max(1, 6 - player.risks);
       player.losingDraw = Math.min(6, player.risks + 1 + Math.floor(rng() * remaining));
@@ -117,7 +134,7 @@ export function act(previous, actorId, action, rng = Math.random) {
     (liar ? player : accused).score += 100;
     accused[liar ? 'caught' : 'honest'] += 1;
     state.reveal = {
-      cards: state.last.cards, liar, accused: accused.name, challenger: player.name,
+      cards: state.last.cards, liar, accused: accused.name, challenger: player.name, challengerId: player.id,
       loser: loser.name, loserId: loser.id, draw: loser.risks + 1,
     };
     state.log.unshift(`${player.name} called LIAR. ${accused.name} ${liar ? 'lied' : 'told the truth'}. ${loser.name} faces the hammer.`);
@@ -126,6 +143,9 @@ export function act(previous, actorId, action, rng = Math.random) {
   } else {
     throw new Error('Unknown move.');
   }
+  const timestamp = Date.now();
+  state.events = [...(state.events || []), {id: `${state.id}:${state.revision + 1}`, type: action.type, player: actorId, round: state.round, elapsedMs: Math.max(0, timestamp - (state.turnStartedAt || timestamp)), count: action.type === 'play' ? action.cards.length : undefined}].slice(-100);
+  state.turnStartedAt = timestamp;
   state.revision += 1;
   state.log = state.log.slice(0, 12);
   return state;
@@ -169,7 +189,8 @@ export function resolveRisk(previous, rng = Math.random) {
   state.reveal.eliminated = eliminated;
   const survivors = state.players.filter((p) => p.alive);
   state.phase = survivors.length === 1 ? 'finished' : 'resolved';
-  if (state.phase === 'finished') { state.winner = survivors[0].id; survivors[0].score += 500; }
+  if (eliminated) player.placement = survivors.length + 1;
+  if (state.phase === 'finished') { state.winner = survivors[0].id; survivors[0].placement = 1; survivors[0].score += 500; }
   state.log.unshift(`${eliminated ? 'DEAD' : 'SAFE'}. ${player.name} ${eliminated ? 'was crushed by the hammer' : 'bounces back'}.`);
   state.revision += 1;
   return state;
@@ -179,7 +200,7 @@ export function resolveRisk(previous, rng = Math.random) {
 export function viewFor(state, id) {
   return {
     ...state,
-    players: state.players.map(({ hand, played, losingDraw, personality, ...p }) => ({
+    players: state.players.map(({ hand, played, losingDraw, personality, style, ...p }) => ({
       ...p, count: hand.length, ...(p.id === id ? { hand: [...hand], played: [...played] } : {}),
     })),
     last: state.last ? { player: state.last.player, count: state.last.count } : null,

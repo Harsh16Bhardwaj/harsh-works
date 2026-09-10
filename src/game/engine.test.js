@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { act, armRisk, readyRisk, fireRisk, resolveRisk, bluffEstimate, botAction, createGame, mustChallenge, nextRound, upgradeGame, validSave, viewFor } from './engine.js';
+import { act, armRisk, readyRisk, fireRisk, resolveRisk, bluffEstimate, botAction, BOT_NAMES, createGame, mustChallenge, nextRound, upgradeGame, validSave, viewFor } from './engine.js';
 import { createRoomHandler, roomRequest } from './rooms.js';
 import { memoryRoomStore } from './room-store.js';
 import { phaseDelay, TIMING } from './timing.js';
@@ -79,7 +79,7 @@ test('500 seeded full matches terminate, preserve invariants, and award one winn
       else if (game.phase === 'resolved') game = nextRound(game, rng);
       else {
         const player = game.players[game.turn];
-        game = act(game, player.id, botAction(viewFor(game, player.id), rng), rng);
+        game = act(game, player.id, botAction(viewFor(game, player.id), rng, player.personality), rng);
       }
       assert.ok(validSave(game));
       assert.ok(game.players.every((p) => p.hand.length <= 5 && p.score >= 0));
@@ -131,6 +131,22 @@ test('only the losing player can fire, and the result is secret until resolution
   assert.throws(()=>resolveRisk(game));
 });
 
+test('game preserves the selected player skin',()=>{
+  const game=createGame([{id:'you',name:'you',character:8},...seats.slice(1)],seed(2));
+  assert.equal(game.players[0].character,8);
+});
+
+test('bots draw random non-conflicting skins around the table',()=>{
+  const game=createGame([
+    {id:'you',name:'you',character:8},
+    ...BOT_NAMES.map((name,index)=>({id:`bot-${index}`,name,bot:true})),
+  ],seed(22));
+  const characters=game.players.map(player=>player.character);
+  assert.equal(characters[0],8);
+  assert.equal(new Set(characters).size,4);
+  assert.ok(game.players.slice(1).every(player=>player.character!==8));
+});
+
 test('each player has one hidden losing draw and the sixth can never be safe', () => {
   let game = createGame(seats, seed(12));
   game.players[0].losingDraw = 6;
@@ -172,7 +188,7 @@ test('concurrent joins preserve all seats and concurrent moves apply only once',
   assert.equal((await second({ type: 'poll', code: host.code }, host.token)).game.revision, 1);
 });
 
-test('bots honor personality timing; late and simultaneous polls advance only one turn', async t => {
+test('bots honor personality deadlines; late and simultaneous polls advance only one turn', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: 100000 });
   const request = createRoomHandler(memoryRoomStore());
   const host = await request({ type: 'create' });

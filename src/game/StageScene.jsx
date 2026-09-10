@@ -77,8 +77,8 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
     const flightMaterial=surface(0xe1d0a9),cardGeometry=new T.BoxGeometry(.19,.29,.015);
     for(let i=0;i<3;i++)part(flights,cardGeometry,flightMaterial);flights.visible=false;
     el.appendChild(renderer.domElement);setReady(true);
-    let width=0,height=0,baseZoom=1.62;const point=new T.Vector3();
-    function project(x,y,z){point.set(x,y,z).project(camera);return{x:(point.x+1)*width/2,y:(1-point.y)*height/2};}
+    let width=0,height=0,baseZoom=1.72;const point=new T.Vector3();
+    function project(x,y,z){point.set(x,y,z).project(camera);return{x:(point.x+1)*width/2+el.offsetLeft,y:(1-point.y)*height/2+el.offsetTop};}
     function labels(){
       actors.forEach((actor,i)=>{
         if(!actor||i===3)return;const label=el.parentElement.querySelector(`.seat-${i}`);if(!label)return;
@@ -90,7 +90,7 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
       const center=el.parentElement.querySelector('.orbit-table-center');
       if(center&&!center.classList.contains('is-revealing')){const p=project(0,.52,-.05);center.style.left=`${p.x}px`;center.style.top=`${p.y-75}px`;}
     }
-    function resize(){({width,height}=el.getBoundingClientRect());renderer.setSize(width,height,false);camera.aspect=width/Math.max(1,height);baseZoom=width<600?1.08:1.62;camera.zoom=baseZoom;camera.updateProjectionMatrix();labels();}
+    function resize(){({width,height}=el.getBoundingClientRect());renderer.setSize(width,height,false);camera.aspect=width/Math.max(1,height);baseZoom=Math.min(1.72,Math.max(.68,camera.aspect*1.14));camera.zoom=baseZoom;camera.updateProjectionMatrix();labels();}
     const observer=new ResizeObserver(resize);observer.observe(el);resize();
     const lost=event=>{event.preventDefault();setReady(false);},restored=()=>setReady(true);
     renderer.domElement.addEventListener('webglcontextlost',lost);renderer.domElement.addEventListener('webglcontextrestored',restored);
@@ -160,6 +160,8 @@ export default function StageScene({players,activeId,phase,gameKey,round,onConta
         f.head.rotation.z=motion*Math.sin(elapsed*.65+i)*.025+tremble*.075;
         if(elapsed>f.blinkAt+.14)f.blinkAt=elapsed+3.1+i*.61;
         const blink=motion&&elapsed>f.blinkAt?.12:1;f.eyes.forEach(eye=>eye.scale.y=blink*(1+fear*.72));
+        f.brows?.forEach((brow,j)=>{brow.position.y=.108+fear*.035;brow.rotation.z=(j===0?1:-1)*(.1+fear*.25);});
+        if(f.mouth)f.mouth.scale.y=1+fear*3;
         f.arms.forEach(({shoulder,elbow,side})=>{shoulder.rotation.x+=((-.45-reach*.5-(targeted?.16:0)-fear*.34+reaction*.45)-shoulder.rotation.x)*a;shoulder.rotation.z=side*(brace+reaction);elbow.rotation.x+=((-.7-reach*.4-fear*.42+reaction*.7)-elbow.rotation.x)*a;});
         f.cards.rotation.y=motion*Math.sin(elapsed*.7+i)*.02;f.halo.visible=active&&!dead;f.halo.scale.setScalar(1);
       });
